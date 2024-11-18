@@ -60,10 +60,10 @@ pub async fn swap_batch(
                 ignored_count += ig;
             }
             Err(e) => {
-              error!("skipping batch, could not insert: {:?}", e);
-              warn!("waiting 5 secs before retrying connection");
-              thread::sleep(Duration::from_secs(5));
-            },
+                error!("skipping batch, could not insert: {:?}", e);
+                warn!("waiting 5 secs before retrying connection");
+                thread::sleep(Duration::from_secs(5));
+            }
         };
     }
 

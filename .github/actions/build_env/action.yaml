@@ -1,0 +1,45 @@
+name: setup
+description: initialize ubuntu environment
+runs:
+  using: composite
+  steps:
+    - name: free disk space
+      uses: jlumbroso/free-disk-space@main
+      with:
+        # this might remove tools that are actually needed,
+        # if set to "true" but frees about 6 GB
+        tool-cache: false
+        # all of these default to true, but feel free to set to
+        # "false" if necessary for your workflow
+        android: true
+        dotnet: true
+        haskell: true
+        large-packages: false
+        docker-images: true
+        swap-storage: true
+
+    - uses: awalsh128/cache-apt-pkgs-action@latest
+      with:
+        packages: build-essential ca-certificates clang curl git libpq-dev libssl-dev pkg-config lsof lld libgmp-dev
+        version: 1.0
+
+    - uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: 1.78.0
+        override: true
+
+    - name: install rustfmt clippy
+      shell: bash
+      run: rustup component add rustfmt clippy
+
+    - name: also rust cache
+      uses: Swatinem/rust-cache@v2.7.0
+      with:
+        shared-key: "libra"
+        cache-on-failure: "true"
+
+    # call own action for libra_cli
+    # known issue with needing to hard code the @version
+    # https://github.com/orgs/community/discussions/41927
+    - uses: 0LNetworkCommunity/libra-framework/.github/actions/get_cli@main

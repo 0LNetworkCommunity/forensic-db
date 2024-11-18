@@ -65,7 +65,7 @@ pub async fn tx_batch(
             Ok(Some(true)) => {
                 info!("...skipping, already loaded.");
                 // skip this one
-                continue
+                continue;
             }
             Ok(Some(false)) => {
                 // keep going
