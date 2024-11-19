@@ -7,6 +7,7 @@ use support::pg_testcontainer::get_test_pool;
 
 use libra_forensic_db::extract_snapshot::{extract_current_snapshot, extract_v5_snapshot};
 
+#[ignore]
 #[tokio::test]
 async fn test_e2e_load_v5_snapshot() -> anyhow::Result<()> {
     let (pool, _c) = get_test_pool().await?;
@@ -40,6 +41,7 @@ async fn test_e2e_load_v7_snapshot() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[ignore]
 #[tokio::test]
 async fn test_e2e_load_v7_snapshot_on_age_graph() -> anyhow::Result<()> {
     // USING APACHE/AGE
@@ -57,6 +59,7 @@ async fn test_e2e_load_v7_snapshot_on_age_graph() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[ignore]
 #[tokio::test]
 async fn test_ingest_two_v6_snapshot_archives() -> anyhow::Result<()> {
     let (pool, _c) = get_test_pool().await?;

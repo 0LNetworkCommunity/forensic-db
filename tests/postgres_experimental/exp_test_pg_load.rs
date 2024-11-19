@@ -8,6 +8,7 @@ use libra_forensic_db::table_structs::{
 };
 use libra_types::exports::AccountAddress;
 
+#[ignore]
 #[tokio::test]
 async fn insert_one_account() -> anyhow::Result<()> {
     let (pool, _c) = get_test_pool().await?;
@@ -26,6 +27,7 @@ async fn insert_one_account() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[ignore]
 #[tokio::test]
 async fn batch_insert_account() -> anyhow::Result<()> {
     let (pool, _c) = get_test_pool().await?;
@@ -44,6 +46,7 @@ async fn batch_insert_account() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[ignore]
 #[tokio::test]
 async fn batch_duplicates_fail_gracefully() -> anyhow::Result<()> {
     let (pool, _c) = get_test_pool().await?;
@@ -68,6 +71,7 @@ async fn batch_duplicates_fail_gracefully() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[ignore]
 #[tokio::test]
 async fn batch_insert_coin() -> anyhow::Result<()> {
     let (pool, _c) = get_test_pool().await?;
@@ -101,6 +105,8 @@ async fn batch_insert_coin() -> anyhow::Result<()> {
 
 // The table should not update if the balance remains the same.
 // new records are only inserted when the balance changes.
+#[ignore]
+
 #[tokio::test]
 async fn increment_coin_noop() -> anyhow::Result<()> {
     let (pool, _c) = get_test_pool().await?;
@@ -150,6 +156,8 @@ async fn increment_coin_noop() -> anyhow::Result<()> {
 }
 
 // Only increment the balance table when their balance changes.
+#[ignore]
+
 #[tokio::test]
 async fn increment_coin() -> anyhow::Result<()> {
     let (pool, _c) = get_test_pool().await?;

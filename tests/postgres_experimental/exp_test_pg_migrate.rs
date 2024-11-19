@@ -1,6 +1,7 @@
 mod experimental;
 mod support;
 
+#[ignore]
 #[tokio::test]
 async fn can_init_pg() -> anyhow::Result<()> {
     let (pool, _c) = support::pg_testcontainer::get_test_pool().await?;

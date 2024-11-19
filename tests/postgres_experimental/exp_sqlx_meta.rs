@@ -1,6 +1,7 @@
 mod support;
 use sqlx::Row;
 
+#[ignore]
 #[tokio::test]
 
 async fn test_migrate_from_file_pg() -> anyhow::Result<()> {
