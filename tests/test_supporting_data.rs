@@ -5,7 +5,7 @@ use support::neo4j_testcontainer::start_neo4j_container;
 use std::path::PathBuf;
 
 use anyhow::Result;
-use libra_warehouse::{
+use libra_forensic_db::{
     load_supporting_data,
     neo4j_init::{get_neo4j_localhost_pool, maybe_create_indexes},
     supporting_data::{read_orders_from_file, SwapOrder},

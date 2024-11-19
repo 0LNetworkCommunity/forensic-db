@@ -2,7 +2,7 @@ mod support;
 
 use anyhow::Result;
 use chrono::{DateTime, Utc};
-use libra_warehouse::neo4j_init::{
+use libra_forensic_db::neo4j_init::{
     get_credentials_from_env, get_neo4j_localhost_pool, get_neo4j_remote_pool, maybe_create_indexes,
 };
 use neo4rs::{query, Node};

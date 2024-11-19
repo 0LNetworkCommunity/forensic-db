@@ -1,5 +1,5 @@
 use anyhow::Result;
-use libra_warehouse::{scan::scan_dir_archive, unzip_temp::make_temp_unzipped};
+use libra_forensic_db::{scan::scan_dir_archive, unzip_temp::make_temp_unzipped};
 use std::path::PathBuf;
 
 fn v5_fixtures_path() -> PathBuf {

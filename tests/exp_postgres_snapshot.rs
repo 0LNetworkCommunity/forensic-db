@@ -5,7 +5,7 @@ use experimental::restaurant;
 use support::fixtures;
 use support::pg_testcontainer::get_test_pool;
 
-use libra_warehouse::extract_snapshot::{extract_current_snapshot, extract_v5_snapshot};
+use libra_forensic_db::extract_snapshot::{extract_current_snapshot, extract_v5_snapshot};
 
 #[tokio::test]
 async fn test_e2e_load_v5_snapshot() -> anyhow::Result<()> {

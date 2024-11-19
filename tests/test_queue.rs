@@ -1,7 +1,7 @@
 mod support;
 
 use anyhow::Result;
-use libra_warehouse::{
+use libra_forensic_db::{
     neo4j_init::{get_neo4j_localhost_pool, maybe_create_indexes},
     queue,
     scan::scan_dir_archive,

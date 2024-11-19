@@ -1,7 +1,7 @@
 //! in_jest
 use std::path::Path;
 
-use libra_warehouse::{
+use libra_forensic_db::{
     extract_snapshot::extract_current_snapshot,
     scan::{scan_dir_archive, BundleContent::*},
 };

@@ -1,6 +1,6 @@
 mod support;
 
-use libra_warehouse::extract_transactions::extract_current_transactions;
+use libra_forensic_db::extract_transactions::extract_current_transactions;
 
 #[tokio::test]
 async fn test_extract_tx_from_archive() -> anyhow::Result<()> {

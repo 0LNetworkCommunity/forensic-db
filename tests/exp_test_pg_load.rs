@@ -3,10 +3,10 @@ mod support;
 
 use support::pg_testcontainer::get_test_pool;
 
-use libra_types::exports::AccountAddress;
-use libra_warehouse::table_structs::{
+use libra_forensic_db::table_structs::{
     WarehouseAccount, WarehouseBalance, WarehouseRecord, WarehouseTime,
 };
+use libra_types::exports::AccountAddress;
 
 #[tokio::test]
 async fn insert_one_account() -> anyhow::Result<()> {

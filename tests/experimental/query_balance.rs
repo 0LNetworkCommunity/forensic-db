@@ -2,7 +2,7 @@ use anyhow::Result;
 use libra_types::exports::AccountAddress;
 use sqlx::PgPool;
 
-use libra_warehouse::table_structs::WarehouseBalance;
+use libra_forensic_db::table_structs::WarehouseBalance;
 
 // TODO: return specific commit errors for this batch
 pub async fn query_last_balance(
