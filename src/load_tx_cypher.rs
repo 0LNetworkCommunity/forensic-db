@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
-use log::info;
+use log::{error, info, warn};
 use neo4rs::{query, Graph};
-use std::fmt::Display;
+use std::{fmt::Display, thread, time::Duration};
 
 use crate::{cypher_templates::write_batch_tx_string, queue, table_structs::WarehouseTxMaster};
 
@@ -48,6 +48,7 @@ impl BatchTxReturn {
     }
 }
 
+// TODO: code duplication with exchange order loading.
 pub async fn tx_batch(
     txs: &[WarehouseTxMaster],
     pool: &Graph,
@@ -79,11 +80,19 @@ pub async fn tx_batch(
         }
         info!("...loading to db");
 
-        let batch = impl_batch_tx_insert(pool, c).await?;
-
-        all_results.increment(&batch);
-        queue::update_task(pool, archive_id, true, i).await?;
-        info!("...success");
+        match impl_batch_tx_insert(pool, c).await {
+            Ok(batch) => {
+                all_results.increment(&batch);
+                queue::update_task(pool, archive_id, true, i).await?;
+                info!("...success");
+            }
+            Err(e) => {
+                let secs = 10;
+                error!("skipping batch, could not insert: {:?}", e);
+                warn!("waiting {} secs before retrying connection", secs);
+                thread::sleep(Duration::from_secs(secs));
+            }
+        };
     }
 
     Ok(all_results)
