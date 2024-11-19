@@ -124,12 +124,11 @@ pub fn make_master_tx(
     let tx = WarehouseTxMaster {
         tx_hash,
         expiration_timestamp: user_tx.expiration_timestamp_secs(),
-        sender: user_tx.sender().to_hex_literal(),
+        sender: user_tx.sender(),
         epoch,
         round,
         block_timestamp,
         function,
-        recipient: None,
         entry_function: None,
         relation_label,
         block_datetime: DateTime::from_timestamp_micros(block_timestamp as i64).unwrap(),

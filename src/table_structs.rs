@@ -20,6 +20,30 @@ pub enum RelationLabel {
     // MiscEntryFunction,
 }
 
+impl RelationLabel {
+    pub fn to_cypher_label(&self) -> String {
+        match self {
+            RelationLabel::Tx => "Tx".to_owned(),
+            RelationLabel::Transfer(_) => "Tx".to_owned(),
+            RelationLabel::Onboarding(_) => "Onboarding".to_owned(),
+            RelationLabel::Vouch(_) => "Vouch".to_owned(),
+            RelationLabel::Configuration => "Configuration".to_owned(),
+            RelationLabel::Miner => "Miner".to_owned(),
+        }
+    }
+
+    pub fn get_recipient(&self) -> Option<AccountAddress> {
+        match &self {
+            RelationLabel::Tx => None,
+            RelationLabel::Transfer(account_address) => Some(*account_address),
+            RelationLabel::Onboarding(account_address) => Some(*account_address),
+            RelationLabel::Vouch(account_address) => Some(*account_address),
+            RelationLabel::Configuration => None,
+            RelationLabel::Miner => None,
+        }
+    }
+}
+
 // TODO: deprecate?
 #[derive(Debug, Clone)]
 pub struct TransferTx {
@@ -64,15 +88,13 @@ pub enum EntryFunctionArgs {
 pub struct WarehouseTxMaster {
     pub tx_hash: HashValue, // primary key
     pub relation_label: RelationLabel,
-    pub sender: String,
+    pub sender: AccountAddress,
     pub function: String,
     pub epoch: u64,
     pub round: u64,
     pub block_timestamp: u64,
     pub block_datetime: DateTime<Utc>,
     pub expiration_timestamp: u64,
-    // TODO: remove
-    pub recipient: Option<String>,
     pub entry_function: Option<EntryFunctionArgs>,
     pub events: Vec<WarehouseEvent>,
 }
@@ -82,14 +104,13 @@ impl Default for WarehouseTxMaster {
         Self {
             tx_hash: HashValue::zero(),
             relation_label: RelationLabel::Configuration,
-            sender: AccountAddress::ZERO.short_str_lossless(),
+            sender: AccountAddress::ZERO,
             function: "none".to_owned(),
             epoch: 0,
             round: 0,
             block_timestamp: 0,
             block_datetime: DateTime::<Utc>::from_timestamp_micros(0).unwrap(),
             expiration_timestamp: 0,
-            recipient: None,
             entry_function: None,
             // args: json!(""),
             events: vec![],
@@ -104,23 +125,24 @@ impl WarehouseTxMaster {
     /// JSON5 but the last time someone updated
     /// that crate was 3 years ago.
     pub fn to_cypher_object_template(&self) -> String {
-        let recipient = self.recipient.as_ref().unwrap_or(&self.sender);
-
         let tx_args = match &self.entry_function {
             Some(ef) => to_cypher_object(ef, None).unwrap_or("{test: 0}".to_string()),
             None => "{test: 1}".to_owned(),
         };
 
         format!(
-            r#"{{tx_hash: "{}", block_datetime: datetime("{}"), block_timestamp: {}, relation: "{:?}", function: "{}", sender: "{}", args: {}, recipient: "{}"}}"#,
+            r#"{{tx_hash: "{}", block_datetime: datetime("{}"), block_timestamp: {}, relation: "{}", function: "{}", sender: "{}", args: {}, recipient: "{}"}}"#,
             self.tx_hash.to_hex_literal(),
             self.block_datetime.to_rfc3339(),
             self.block_timestamp,
-            self.relation_label,
+            self.relation_label.to_cypher_label(),
             self.function,
-            self.sender,
+            self.sender.to_hex_literal(),
             tx_args,
-            recipient,
+            self.relation_label
+                .get_recipient()
+                .unwrap_or(self.sender)
+                .to_hex_literal(),
         )
     }
 
@@ -142,8 +164,11 @@ impl WarehouseTxMaster {
     pub fn to_boltmap(&self) -> BoltMap {
         let mut map = BoltMap::new();
         map.put("tx_hash".into(), self.tx_hash.to_string().into());
-        map.put("sender".into(), self.sender.clone().into());
-        map.put("recipient".into(), self.sender.clone().into());
+        map.put("sender".into(), self.sender.clone().to_hex_literal().into());
+        map.put(
+            "recipient".into(),
+            self.sender.clone().to_hex_literal().into(),
+        );
 
         // TODO
         // map.put("epoch".into(), self.epoch.into());
