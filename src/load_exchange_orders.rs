@@ -5,17 +5,16 @@ use log::{error, info, warn};
 use neo4rs::{query, Graph};
 
 use crate::{
+    exchange_orders::{read_orders_from_file, ExchangeOrder},
     queue,
-    supporting_data::{read_orders_from_file, SwapOrder},
 };
 
 pub async fn swap_batch(
-    txs: &[SwapOrder],
+    txs: &[ExchangeOrder],
     pool: &Graph,
     batch_len: usize,
-    skip_to_batch: Option<usize>,
 ) -> Result<(u64, u64)> {
-    let chunks: Vec<&[SwapOrder]> = txs.chunks(batch_len).collect();
+    let chunks: Vec<&[ExchangeOrder]> = txs.chunks(batch_len).collect();
     let mut merged_count = 0u64;
     let mut ignored_count = 0u64;
 
@@ -23,11 +22,6 @@ pub async fn swap_batch(
     info!("archive: {}", archive_id);
 
     for (i, c) in chunks.iter().enumerate() {
-        if let Some(skip) = skip_to_batch {
-            if i < skip {
-                continue;
-            };
-        };
         info!("batch #{}", i);
 
         match queue::is_complete(pool, archive_id, i).await {
@@ -70,9 +64,9 @@ pub async fn swap_batch(
     Ok((merged_count, ignored_count))
 }
 
-pub async fn impl_batch_tx_insert(pool: &Graph, batch_txs: &[SwapOrder]) -> Result<(u64, u64)> {
-    let list_str = SwapOrder::to_cypher_map(batch_txs);
-    let cypher_string = SwapOrder::cypher_batch_insert_str(list_str);
+pub async fn impl_batch_tx_insert(pool: &Graph, batch_txs: &[ExchangeOrder]) -> Result<(u64, u64)> {
+    let list_str = ExchangeOrder::to_cypher_map(batch_txs);
+    let cypher_string = ExchangeOrder::cypher_batch_insert_str(list_str);
 
     // Execute the query
     let cypher_query = query(&cypher_string);
@@ -88,12 +82,7 @@ pub async fn impl_batch_tx_insert(pool: &Graph, batch_txs: &[SwapOrder]) -> Resu
     Ok((merged as u64, ignored as u64))
 }
 
-pub async fn load_from_json(
-    path: &Path,
-    pool: &Graph,
-    batch_len: usize,
-    skip_to_batch: Option<usize>,
-) -> Result<(u64, u64)> {
+pub async fn load_from_json(path: &Path, pool: &Graph, batch_len: usize) -> Result<(u64, u64)> {
     let orders = read_orders_from_file(path)?;
-    swap_batch(&orders, pool, batch_len, skip_to_batch).await
+    swap_batch(&orders, pool, batch_len).await
 }

@@ -87,5 +87,5 @@ You can add off-chain data to the forensic db. Currently, exchange transactions 
 #### enrich data
 
 ```
-libra-forensic-db enrich --swap-record-json <path to .json file>
+libra-forensic-db enrich-exchange --exchange_json <path to .json file>
 ```

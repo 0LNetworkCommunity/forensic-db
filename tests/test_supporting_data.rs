@@ -6,9 +6,9 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use libra_forensic_db::{
-    load_supporting_data,
+    exchange_orders::{read_orders_from_file, ExchangeOrder},
+    load_exchange_orders,
     neo4j_init::{get_neo4j_localhost_pool, maybe_create_indexes},
-    supporting_data::{read_orders_from_file, SwapOrder},
 };
 use neo4rs::query;
 
@@ -26,21 +26,21 @@ async fn test_swap_batch_cypher() -> Result<()> {
     let port = c.get_host_port_ipv4(7687);
     let graph = get_neo4j_localhost_pool(port).await?;
     // Three user ids exist in these two transactions
-    let order1 = SwapOrder {
+    let order1 = ExchangeOrder {
         user: 1234,
         accepter: 666,
         ..Default::default()
     };
 
-    let order2 = SwapOrder {
+    let order2 = ExchangeOrder {
         user: 4567,
         accepter: 666,
         ..Default::default()
     };
 
     let list = vec![order1.clone(), order2];
-    let cypher_map = SwapOrder::to_cypher_map(&list);
-    let insert_query = SwapOrder::cypher_batch_insert_str(cypher_map);
+    let cypher_map = ExchangeOrder::to_cypher_map(&list);
+    let insert_query = ExchangeOrder::cypher_batch_insert_str(cypher_map);
 
     let mut res1 = graph.execute(query(&insert_query)).await?;
 
@@ -77,7 +77,7 @@ async fn e2e_swap_data() -> Result<()> {
     assert!(orders.len() == 25450);
 
     // load 1000 orders
-    load_supporting_data::swap_batch(&orders[..1000], &graph, 1000, None).await?;
+    load_exchange_orders::swap_batch(&orders[..1000], &graph, 1000).await?;
 
     // now check data was loaded
     let mut result = graph

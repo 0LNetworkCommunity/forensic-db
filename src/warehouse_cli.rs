@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use crate::{
     load::{ingest_all, try_load_one_archive},
-    load_supporting_data,
+    load_exchange_orders,
     neo4j_init::{self, get_credentials_from_env, PASS_ENV, URI_ENV, USER_ENV},
     scan::{scan_dir_archive, BundleContent},
 };
@@ -15,11 +15,14 @@ use crate::{
 #[clap(arg_required_else_help(true))]
 /// Extract transform and load data into a graph datawarehouse
 pub struct WarehouseCli {
-    #[clap(long, short('d'))]
+    #[clap(long, short('r'))]
     /// URI of graphDB e.g. neo4j+s://localhost:port
     db_uri: Option<String>,
+    #[clap(long, short('u'))]
+
     /// username of db
     db_username: Option<String>,
+    #[clap(long, short('p'))]
     /// db password
     db_password: Option<String>,
 
@@ -48,13 +51,13 @@ pub enum Sub {
         archive_dir: PathBuf,
     },
     /// add supporting data in addition to chain records
-    Enrich {
+    EnrichExchange {
         #[clap(long)]
         /// file with swap records
-        swap_record_json: PathBuf,
+        exchange_json: PathBuf,
         #[clap(long)]
-        /// skip ahead to a batch in case you got disconnected
-        skip_to_batch: Option<usize>,
+        /// size of each batch to load
+        batch_size: Option<usize>,
     },
 }
 
@@ -97,19 +100,17 @@ impl WarehouseCli {
                     }
                 }
             }
-            Sub::Enrich {
-                swap_record_json,
-                skip_to_batch,
+            Sub::EnrichExchange {
+                exchange_json: swap_record_json,
+                batch_size,
             } => {
                 let pool = try_db_connection_pool(self).await?;
                 neo4j_init::maybe_create_indexes(&pool).await?;
 
-                let batch_len = 1000; // TODO: make this a param
-                load_supporting_data::load_from_json(
+                load_exchange_orders::load_from_json(
                     swap_record_json,
                     &pool,
-                    batch_len,
-                    *skip_to_batch,
+                    batch_size.unwrap_or(250),
                 )
                 .await?;
             }
