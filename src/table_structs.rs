@@ -2,41 +2,54 @@ use crate::cypher_templates::to_cypher_object;
 
 use chrono::{DateTime, Utc};
 use diem_crypto::HashValue;
+use diem_types::account_config::{DepositEvent, WithdrawEvent};
 use libra_backwards_compatibility::sdk::v7_libra_framework_sdk_builder::EntryFunctionCall;
-use libra_types::exports::AccountAddress;
+use libra_types::{exports::AccountAddress, move_resource::coin_register_event::CoinRegisterEvent};
 use neo4rs::{BoltList, BoltMap, BoltType};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum RelationLabel {
-    Unknown,
-    Transfer,
-    Onboarding,
-    Vouch,
+    Tx, // undefined tx
+    Transfer(AccountAddress),
+    Onboarding(AccountAddress),
+    Vouch(AccountAddress),
     Configuration,
     Miner,
-    Script,
-    MiscEntryFunction,
+    // Script,
+    // MiscEntryFunction,
 }
 
+// TODO: deprecate?
 #[derive(Debug, Clone)]
 pub struct TransferTx {
-    pub tx_hash: HashValue, // primary key
+    pub tx_hash: HashValue,
     pub to: AccountAddress,
     pub amount: u64,
 }
 
+// TODO: deprecate?
 #[derive(Debug, Clone)]
 pub struct MiscTx {
     pub tx_hash: HashValue, // primary key
     pub data: serde_json::Value,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct WarehouseEvent {
     pub tx_hash: HashValue, // primary key
+    pub event: UserEventTypes,
     pub event_name: String,
     pub data: serde_json::Value,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+
+pub enum UserEventTypes {
+    Withdraw(WithdrawEvent),
+    Deposit(DepositEvent),
+    Onboard(CoinRegisterEvent),
+    Other,
 }
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
@@ -47,7 +60,7 @@ pub enum EntryFunctionArgs {
     // V5(V5EntryFunctionCall),
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct WarehouseTxMaster {
     pub tx_hash: HashValue, // primary key
     pub relation_label: RelationLabel,

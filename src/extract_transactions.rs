@@ -1,4 +1,4 @@
-use crate::table_structs::{RelationLabel, TransferTx, WarehouseEvent, WarehouseTxMaster};
+use crate::table_structs::{RelationLabel, UserEventTypes, WarehouseEvent, WarehouseTxMaster};
 use anyhow::Result;
 use chrono::DateTime;
 use diem_crypto::HashValue;
@@ -9,6 +9,7 @@ use libra_backwards_compatibility::sdk::v6_libra_framework_sdk_builder::EntryFun
 use libra_backwards_compatibility::sdk::v7_libra_framework_sdk_builder::EntryFunctionCall as V7EntryFunctionCall;
 use libra_cached_packages::libra_stdlib::EntryFunctionCall;
 use libra_storage::read_tx_chunk::{load_chunk, load_tx_chunk_manifest};
+use libra_types::move_resource::coin_register_event::CoinRegisterEvent;
 use libra_types::util::format_signed_transaction;
 use serde_json::json;
 use std::path::Path;
@@ -76,8 +77,8 @@ pub async fn extract_current_transactions(
             events.append(&mut decoded_events);
 
             if let Some(signed_transaction) = tx.try_as_signed_user_txn() {
-                let mut tx = make_master_tx(signed_transaction, epoch, round, timestamp)?;
-                tx.events = decoded_events;
+                let tx =
+                    make_master_tx(signed_transaction, epoch, round, timestamp, decoded_events)?;
 
                 // sanity check that we are talking about the same block, and reading vectors sequentially.
                 assert!(tx.tx_hash == tx_hash_info, "transaction hashes do not match in transaction vector and transaction_info vector");
@@ -103,6 +104,7 @@ pub fn make_master_tx(
     epoch: u64,
     round: u64,
     block_timestamp: u64,
+    events: Vec<WarehouseEvent>,
 ) -> Result<WarehouseTxMaster> {
     let tx_hash = user_tx.clone().committed_hash();
     let raw = user_tx.raw_transaction_ref();
@@ -117,8 +119,9 @@ pub fn make_master_tx(
         }
         diem_types::transaction::TransactionPayload::Multisig(_multisig) => "Multisig".to_string(),
     };
+    let relation_label = get_relation(user_tx, &events);
 
-    let mut tx = WarehouseTxMaster {
+    let tx = WarehouseTxMaster {
         tx_hash,
         expiration_timestamp: user_tx.expiration_timestamp_secs(),
         sender: user_tx.sender().to_hex_literal(),
@@ -127,16 +130,11 @@ pub fn make_master_tx(
         block_timestamp,
         function,
         recipient: None,
-        // args: function_args_to_json(user_tx)?,
         entry_function: None,
-        relation_label: RelationLabel::Unknown,
+        relation_label,
         block_datetime: DateTime::from_timestamp_micros(block_timestamp as i64).unwrap(),
-        events: vec![],
+        events,
     };
-
-    if let Ok(deposit) = try_decode_deposit_tx(user_tx) {
-        tx.recipient = Some(deposit.to.to_hex_literal());
-    }
 
     Ok(tx)
 }
@@ -154,19 +152,28 @@ pub fn decode_events(
             }
 
             let event_name = el.type_tag().to_canonical_string();
+            let mut event = UserEventTypes::Other;
 
             let mut data = json!("unknown data");
 
             if let Ok(e) = WithdrawEvent::try_from_bytes(el.event_data()) {
-                data = json!(e);
+                data = json!(&e);
+                event = UserEventTypes::Withdraw(e);
             }
 
             if let Ok(e) = DepositEvent::try_from_bytes(el.event_data()) {
-                data = json!(e);
+                data = json!(&e);
+                event = UserEventTypes::Deposit(e);
+            }
+
+            if let Ok(e) = CoinRegisterEvent::try_from_bytes(el.event_data()) {
+                data = json!(&e);
+                event = UserEventTypes::Onboard(e);
             }
 
             Some(WarehouseEvent {
                 tx_hash,
+                event,
                 event_name,
                 data,
             })
@@ -199,16 +206,42 @@ pub fn function_args_to_json(user_tx: &SignedTransaction) -> Result<serde_json::
 }
 
 // TODO: unsure if this needs to happen on Rust side
-fn try_decode_deposit_tx(user_tx: &SignedTransaction) -> Result<TransferTx> {
-    let (to, amount) = match EntryFunctionCall::decode(user_tx.payload()) {
-        Some(EntryFunctionCall::OlAccountTransfer { to, amount }) => (to, amount),
-        // many variants
-        _ => anyhow::bail!("not a deposit tx"),
-    };
+fn get_relation(user_tx: &SignedTransaction, events: &[WarehouseEvent]) -> RelationLabel {
+    match EntryFunctionCall::decode(user_tx.payload()) {
+        Some(EntryFunctionCall::OlAccountTransfer { to, amount: _ }) => {
+            if is_onboarding_event(events) {
+                RelationLabel::Onboarding(to)
+            } else {
+                RelationLabel::Transfer(to)
+            }
+        }
+        // TODO: get other entry functions with known counter parties
+        // if nothing is found try to decipher from events
+        _ => RelationLabel::Tx,
+    }
+}
 
-    Ok(TransferTx {
-        tx_hash: user_tx.clone().committed_hash(),
-        to,
-        amount,
-    })
+fn is_onboarding_event(events: &[WarehouseEvent]) -> bool {
+    let withdraw = events.iter().any(|e| {
+        if let UserEventTypes::Withdraw(_) = e.event {
+            return true;
+        }
+        false
+    });
+
+    let deposit = events.iter().any(|e| {
+        if let UserEventTypes::Deposit(_) = e.event {
+            return true;
+        }
+        false
+    });
+
+    let onboard = events.iter().any(|e| {
+        if let UserEventTypes::Onboard(_) = e.event {
+            return true;
+        }
+        false
+    });
+
+    withdraw && deposit && onboard
 }
