@@ -1,0 +1,34 @@
+name: rust-tests
+
+on:
+  push:
+    tags: # only on releases, not RC, since we've tested already
+      - "[0-9]+.[0-9]+.[0-9]+"
+    branches: ["**"] # glob pattern to allow slash /
+  pull_request:
+    types:
+      - opened
+      - synchronize
+    branches:
+      - "release**"
+      - "main**"
+  schedule:
+    - cron: "30 00 * * *"
+
+jobs:
+  types:
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: setup env
+        uses: ./.github/actions/build_env
+
+      - uses: Swatinem/rust-cache@v2.7.3
+        with:
+          shared-key: "forensic-db"
+          cache-all-crates: true
+
+      - name: test
+        working-directory: ./
+        run: cargo test --no-fail-fast
