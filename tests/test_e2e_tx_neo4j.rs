@@ -69,7 +69,7 @@ async fn test_load_entry_point_tx() -> anyhow::Result<()> {
         .await
         .expect("could start index");
 
-    let res = try_load_one_archive(man, &graph).await?;
+    let res = try_load_one_archive(man, &graph, 1000).await?;
     assert!(res.created_accounts == 118);
     assert!(res.modified_accounts == 0);
     assert!(res.unchanged_accounts == 0);

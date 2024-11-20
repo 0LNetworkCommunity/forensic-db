@@ -57,7 +57,11 @@ pub async fn get_queued(pool: &Graph) -> Result<Vec<String>> {
 }
 
 // Three options: Not found in DB, found and complete, found and incomplete
-pub async fn is_complete(pool: &Graph, archive_id: &str, batch: usize) -> Result<Option<bool>> {
+pub async fn is_batch_complete(
+    pool: &Graph,
+    archive_id: &str,
+    batch: usize,
+) -> Result<Option<bool>> {
     let cypher_string = format!(
         r#"
         MATCH (a:Queue {{ archive_id: "{}", batch: {} }})

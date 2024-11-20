@@ -31,13 +31,13 @@ async fn test_queue() -> Result<()> {
 
     assert!(*"transaction_38100001-.541f" == list[0]);
 
-    let c = queue::is_complete(&pool, "transaction_38100001-.541f", batch).await;
+    let c = queue::is_batch_complete(&pool, "transaction_38100001-.541f", batch).await;
     assert!(!c?.unwrap());
 
     // Now we update the task, with ID and batch
     let _id = queue::update_task(&pool, &man_info.archive_id, true, batch).await?;
 
-    let c = queue::is_complete(&pool, "transaction_38100001-.541f", batch).await;
+    let c = queue::is_batch_complete(&pool, "transaction_38100001-.541f", batch).await;
     assert!(c?.unwrap());
 
     Ok(())

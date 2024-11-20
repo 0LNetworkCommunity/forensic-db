@@ -52,19 +52,23 @@ impl BatchTxReturn {
 pub async fn tx_batch(
     txs: &[WarehouseTxMaster],
     pool: &Graph,
-    batch_len: usize,
+    batch_size: usize,
     archive_id: &str,
 ) -> Result<BatchTxReturn> {
-    let chunks: Vec<&[WarehouseTxMaster]> = txs.chunks(batch_len).collect();
+    let chunks: Vec<&[WarehouseTxMaster]> = txs.chunks(batch_size).collect();
     let mut all_results = BatchTxReturn::new();
     info!("archive: {}", archive_id);
 
     for (i, c) in chunks.into_iter().enumerate() {
         info!("batch #{}", i);
+        // double checking the status of the loading PER BATCH
+        // it could have been updated in the interim
+        // since the outer check in ingest_all, just checks
+        // all things completed prior to this run
         // check if this is already completed, or should be inserted.
-        match queue::is_complete(pool, archive_id, i).await {
+        match queue::is_batch_complete(pool, archive_id, i).await {
             Ok(Some(true)) => {
-                info!("...skipping, already loaded.");
+                info!("...skipping, all batches loaded.");
                 // skip this one
                 continue;
             }
@@ -72,7 +76,7 @@ pub async fn tx_batch(
                 // keep going
             }
             _ => {
-                info!("...not found in queue, adding to queue.");
+                info!("...batch not found in queue, adding to queue.");
 
                 // no task found in db, add to queue
                 queue::update_task(pool, archive_id, false, i).await?;

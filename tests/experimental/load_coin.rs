@@ -5,9 +5,9 @@ use sqlx::{postgres::PgQueryResult, PgPool, Postgres, QueryBuilder};
 pub async fn batch_insert_account(
     pool: &PgPool,
     acc: &[WarehouseRecord],
-    batch_len: usize,
+    batch_size: usize,
 ) -> Result<()> {
-    let chunks: Vec<&[WarehouseRecord]> = acc.chunks(batch_len).collect();
+    let chunks: Vec<&[WarehouseRecord]> = acc.chunks(batch_size).collect();
 
     for c in chunks {
         impl_batch_coin_insert(pool, c).await?;

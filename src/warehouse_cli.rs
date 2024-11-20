@@ -13,7 +13,7 @@ use crate::{
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
 #[clap(arg_required_else_help(true))]
-/// Extract transform and load data into a graph datawarehouse
+/// Extract, transform, and load data into a graph datawarehouse
 pub struct WarehouseCli {
     #[clap(long, short('r'))]
     /// URI of graphDB e.g. neo4j+s://localhost:port
@@ -39,14 +39,24 @@ pub enum Sub {
     /// scans sub directories for archive bundles
     IngestAll {
         #[clap(long, short('d'))]
+        /// path to start crawling from
         start_path: PathBuf,
         #[clap(long, short('c'))]
+        /// type of content to load
         archive_content: Option<BundleContent>,
+        #[clap(long, short('b'))]
+        /// size of each batch to load
+        batch_size: Option<usize>,
     },
     /// process and load a single archive
     LoadOne {
         #[clap(long, short('d'))]
+        /// location of archive
         archive_dir: PathBuf,
+
+        #[clap(long, short('b'))]
+        /// size of each batch to load
+        batch_size: Option<usize>,
     },
     /// check archive is valid and can be decoded
     Check {
@@ -70,28 +80,30 @@ impl WarehouseCli {
             Sub::IngestAll {
                 start_path,
                 archive_content,
+                batch_size,
             } => {
                 let map = scan_dir_archive(start_path, archive_content.to_owned())?;
                 let pool = try_db_connection_pool(self).await?;
                 neo4j_init::maybe_create_indexes(&pool).await?;
-                ingest_all(&map, &pool, self.clear_queue).await?;
+                ingest_all(&map, &pool, self.clear_queue, batch_size.unwrap_or(250)).await?;
             }
-            Sub::LoadOne { archive_dir } => {
-                match scan_dir_archive(archive_dir, None)?.0.get(archive_dir) {
-                    Some(man) => {
-                        let pool = try_db_connection_pool(self).await?;
-                        neo4j_init::maybe_create_indexes(&pool).await?;
+            Sub::LoadOne {
+                archive_dir,
+                batch_size,
+            } => match scan_dir_archive(archive_dir, None)?.0.get(archive_dir) {
+                Some(man) => {
+                    let pool = try_db_connection_pool(self).await?;
+                    neo4j_init::maybe_create_indexes(&pool).await?;
 
-                        try_load_one_archive(man, &pool).await?;
-                    }
-                    None => {
-                        bail!(format!(
-                            "ERROR: cannot find .manifest file under {}",
-                            archive_dir.display()
-                        ));
-                    }
+                    try_load_one_archive(man, &pool, batch_size.unwrap_or(250)).await?;
                 }
-            }
+                None => {
+                    bail!(format!(
+                        "ERROR: cannot find .manifest file under {}",
+                        archive_dir.display()
+                    ));
+                }
+            },
             Sub::Check { archive_dir } => {
                 match scan_dir_archive(archive_dir, None)?.0.get(archive_dir) {
                     Some(_) => todo!(),

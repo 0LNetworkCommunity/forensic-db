@@ -12,9 +12,9 @@ use crate::{
 pub async fn swap_batch(
     txs: &[ExchangeOrder],
     pool: &Graph,
-    batch_len: usize,
+    batch_size: usize,
 ) -> Result<(u64, u64)> {
-    let chunks: Vec<&[ExchangeOrder]> = txs.chunks(batch_len).collect();
+    let chunks: Vec<&[ExchangeOrder]> = txs.chunks(batch_size).collect();
     let mut merged_count = 0u64;
     let mut ignored_count = 0u64;
 
@@ -24,7 +24,7 @@ pub async fn swap_batch(
     for (i, c) in chunks.iter().enumerate() {
         info!("batch #{}", i);
 
-        match queue::is_complete(pool, archive_id, i).await {
+        match queue::is_batch_complete(pool, archive_id, i).await {
             Ok(Some(true)) => {
                 info!("...skipping, already loaded.");
                 // skip this one
@@ -83,7 +83,7 @@ pub async fn impl_batch_tx_insert(pool: &Graph, batch_txs: &[ExchangeOrder]) -> 
     Ok((merged as u64, ignored as u64))
 }
 
-pub async fn load_from_json(path: &Path, pool: &Graph, batch_len: usize) -> Result<(u64, u64)> {
+pub async fn load_from_json(path: &Path, pool: &Graph, batch_size: usize) -> Result<(u64, u64)> {
     let orders = read_orders_from_file(path)?;
-    swap_batch(&orders, pool, batch_len).await
+    swap_batch(&orders, pool, batch_size).await
 }

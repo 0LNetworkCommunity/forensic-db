@@ -20,9 +20,9 @@ pub async fn insert_one_account(pool: &PgPool, acc: &WarehouseAccount) -> Result
 pub async fn batch_insert_account(
     pool: &PgPool,
     acc: &[WarehouseRecord],
-    batch_len: usize,
+    batch_size: usize,
 ) -> Result<u64> {
-    let chunks: Vec<&[WarehouseRecord]> = acc.chunks(batch_len).collect();
+    let chunks: Vec<&[WarehouseRecord]> = acc.chunks(batch_size).collect();
     let mut rows = 0;
     for c in chunks {
         let res = impl_batch_insert_pg(pool, c).await?;
