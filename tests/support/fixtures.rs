@@ -31,8 +31,6 @@ pub fn v7_state_manifest_fixtures_path() -> PathBuf {
     let p = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .canonicalize()
         .unwrap();
-    assert!(&p.exists(), "not at the cargo manifest dir");
-
     assert!(&p.exists(), "cannot find project root dir");
     let dir = p.join("tests/fixtures/v7/state_epoch_116_ver_38180075.05af");
     assert!(
@@ -47,8 +45,6 @@ pub fn v7_tx_manifest_fixtures_path() -> PathBuf {
     let p = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .canonicalize()
         .unwrap();
-    assert!(&p.exists(), "not at the cargo manifest dir");
-
     assert!(&p.exists(), "cannot find project root dir");
     let dir = p.join("tests/fixtures/v7/transaction_38100001-.541f");
     assert!(
@@ -64,8 +60,6 @@ pub fn v6_tx_manifest_fixtures_path() -> PathBuf {
         .canonicalize()
         .unwrap();
     assert!(&p.exists(), "not at the cargo manifest dir");
-    let p = p.parent().unwrap();
-    assert!(&p.exists(), "cannot find project root dir");
     let dir = p.join("tests/fixtures/v6/transaction_9900001-.e469");
     assert!(
         &dir.exists(),

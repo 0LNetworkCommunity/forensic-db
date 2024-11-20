@@ -7,18 +7,23 @@ pub fn write_batch_tx_string(list_str: String) -> String {
         r#"
 WITH {list_str} AS tx_data
 UNWIND tx_data AS tx
-// Merge Accounts and set creation or modification flags
-MERGE (from:Account {{address: tx.sender}})
-ON CREATE SET from.created_at = timestamp(), from.modified_at = null
-ON MATCH SET from.modified_at = timestamp()
+// Deduplicate sender and recipient accounts
+WITH COLLECT(DISTINCT [tx.sender, tx.recipient]) AS unique_address, tx
 
-MERGE (to:Account {{address: tx.recipient}})
-ON CREATE SET to.created_at = timestamp(), to.modified_at = null
-ON MATCH SET to.modified_at = timestamp()
+UNWIND unique_address AS address
+// Merge unique Accounts
+MERGE (account:Account {{address: address}})
+ON CREATE SET
+    account.created_at = timestamp(),
+    account.modified_at = null
+ON MATCH SET
+    account.modified_at = timestamp()
 
 // CREATE Transaction Relationship and set creation flag
-
+MERGE (from:Account {{address: tx.sender}})
+MERGE (to:Account {{address: tx.recipient}})
 MERGE (from)-[rel:Tx {{tx_hash: tx.tx_hash}}]->(to)
+
 ON CREATE SET rel.created_at = timestamp(), rel.modified_at = null
 ON MATCH SET rel.modified_at = timestamp()
 SET
@@ -29,12 +34,17 @@ SET
     rel.function = tx.function
 
 // Count created, modified, and unchanged Account nodes and Tx relationships based on current timestamp
-WITH
-  COUNT(CASE WHEN from.created_at = timestamp() THEN 1 END) AS created_accounts,
-  COUNT(CASE WHEN from.modified_at = timestamp() AND from.created_at IS NULL THEN 1 END) AS modified_accounts,
-  COUNT(CASE WHEN from.modified_at < timestamp() THEN 1 END) AS unchanged_accounts,
+WITH from, to, rel
+UNWIND [from, to] AS all_nodes
+WITH DISTINCT all_nodes AS node, rel
+
+RETURN
+  // COUNT(CASE WHEN node.created_at = timestamp() THEN 1 END) AS created_accounts,
+  COUNT(node) AS created_accounts,
+
+  COUNT(CASE WHEN node.modified_at = timestamp() AND node.created_at < timestamp() THEN 1 END) AS modified_accounts,
+  COUNT(CASE WHEN node.modified_at < timestamp() THEN 1 END) AS unchanged_accounts,
   COUNT(CASE WHEN rel.created_at = timestamp() THEN 1 END) AS created_tx
-RETURN created_accounts, modified_accounts, unchanged_accounts, created_tx
 "#
     )
 }

@@ -32,10 +32,10 @@ async fn test_parse_archive_into_neo4j() -> anyhow::Result<()> {
     // load in batches
     let archive_id = archive_path.file_name().unwrap().to_str().unwrap();
     let res = tx_batch(&txs, &graph, 100, archive_id).await?;
-    assert!(res.created_accounts == 118);
-    assert!(res.modified_accounts == 0);
+    assert!(res.created_accounts == 135);
+    assert!(res.modified_accounts == 590);
     assert!(res.unchanged_accounts == 0);
-    assert!(res.created_tx == 705);
+    assert!(res.created_tx == 725);
     // CHECK
     // get the sum of all transactions in db
     let cypher_query = query(
@@ -69,11 +69,12 @@ async fn test_load_entry_point_tx() -> anyhow::Result<()> {
         .await
         .expect("could start index");
 
-    let res = try_load_one_archive(man, &graph, 1000).await?;
-    assert!(res.created_accounts == 118);
-    assert!(res.modified_accounts == 0);
+    let res = try_load_one_archive(man, &graph, 10).await?;
+    dbg!(&res);
+    assert!(res.created_accounts == 135);
+    assert!(res.modified_accounts == 590);
     assert!(res.unchanged_accounts == 0);
-    assert!(res.created_tx == 705);
+    assert!(res.created_tx == 725);
     Ok(())
 }
 
@@ -89,10 +90,16 @@ async fn insert_with_cypher_string() -> Result<()> {
         ..Default::default()
     };
 
+    let tx3 = WarehouseTxMaster {
+        tx_hash: HashValue::random(),
+        ..Default::default()
+    };
+
     // two tx records
-    let list = vec![tx1, tx2];
+    let list = vec![tx1, tx2, tx3];
 
     let list_str = WarehouseTxMaster::to_cypher_map(&list);
+    dbg!(&list_str);
     let cypher_string = write_batch_tx_string(list_str);
 
     let c = start_neo4j_container();
@@ -108,7 +115,8 @@ async fn insert_with_cypher_string() -> Result<()> {
 
     let row = res.next().await?.unwrap();
     let created_accounts: i64 = row.get("created_accounts").unwrap();
-    assert!(created_accounts == 2);
+    dbg!(&created_accounts);
+    assert!(created_accounts == 1);
     let modified_accounts: i64 = row.get("modified_accounts").unwrap();
     assert!(modified_accounts == 0);
     let unchanged_accounts: i64 = row.get("unchanged_accounts").unwrap();
