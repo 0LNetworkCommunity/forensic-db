@@ -1,29 +1,13 @@
+mod support;
+
 use anyhow::Result;
 use libra_forensic_db::{scan::scan_dir_archive, unzip_temp::make_temp_unzipped};
-use std::path::PathBuf;
-
-fn v5_fixtures_path() -> PathBuf {
-    let p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let project_root = p.parent().unwrap();
-    project_root.join("compatibility/fixtures")
-}
-
-fn v7_fixtures_path() -> PathBuf {
-    let p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let project_root = p.parent().unwrap();
-    project_root.join("tools/storage/fixtures/v7")
-}
-
-fn v7_fixtures_gzipped() -> PathBuf {
-    let p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let project_root = p.parent().unwrap();
-    project_root.join("tools/storage/fixtures/v7/transaction_38100001-.541f_gzipped")
-}
+use support::fixtures;
 
 #[test]
 
 fn test_scan_dir_for_v5_manifests() -> Result<()> {
-    let start_here = v5_fixtures_path();
+    let start_here = fixtures::v5_fixtures_path();
 
     let s = scan_dir_archive(&start_here, None)?;
 
@@ -33,7 +17,7 @@ fn test_scan_dir_for_v5_manifests() -> Result<()> {
 
 #[test]
 fn test_scan_dir_for_v7_manifests() -> Result<()> {
-    let start_here = v7_fixtures_path();
+    let start_here = fixtures::v7_fixtures_path();
 
     let s = scan_dir_archive(&start_here, None)?;
 
@@ -45,7 +29,7 @@ fn test_scan_dir_for_v7_manifests() -> Result<()> {
 
 #[test]
 fn test_scan_dir_for_compressed_v7_manifests() -> Result<()> {
-    let start_here = v7_fixtures_gzipped();
+    let start_here = fixtures::v7_fixtures_gzipped();
 
     let archives = scan_dir_archive(&start_here, None)?;
 

@@ -25,6 +25,9 @@ pub struct WarehouseCli {
     #[clap(long, short('p'))]
     /// db password
     db_password: Option<String>,
+    #[clap(long, short('q'))]
+    /// force clear queue
+    clear_queue: bool,
 
     #[clap(subcommand)]
     command: Sub,
@@ -71,7 +74,7 @@ impl WarehouseCli {
                 let map = scan_dir_archive(start_path, archive_content.to_owned())?;
                 let pool = try_db_connection_pool(self).await?;
                 neo4j_init::maybe_create_indexes(&pool).await?;
-                ingest_all(&map, &pool).await?;
+                ingest_all(&map, &pool, self.clear_queue).await?;
             }
             Sub::LoadOne { archive_dir } => {
                 match scan_dir_archive(archive_dir, None)?.0.get(archive_dir) {
