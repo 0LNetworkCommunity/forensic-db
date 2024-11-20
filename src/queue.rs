@@ -1,4 +1,5 @@
 use anyhow::{bail, Context, Result};
+use log::info;
 use neo4rs::Graph;
 
 use crate::scan::ArchiveMap;
@@ -65,8 +66,7 @@ pub async fn is_batch_complete(
     let cypher_string = format!(
         r#"
         MATCH (a:Queue {{ archive_id: "{}", batch: {} }})
-        WHERE a.completed = false
-        RETURN COUNT(a) = 0 AS is_complete;
+        RETURN DISTINCT a.completed;
       "#,
         archive_id, batch
     );
@@ -80,7 +80,7 @@ pub async fn is_batch_complete(
 
     if let Some(row) = res.next().await? {
         // Extract `archive_id` as a String
-        Ok(row.get::<bool>("is_complete").ok())
+        Ok(row.get::<bool>("a.completed").ok())
     } else {
         bail!("not found")
     }
@@ -107,6 +107,7 @@ pub async fn push_queue_from_archive_map(map: &ArchiveMap, pool: &Graph) -> Resu
     for (_, a) in map.0.iter() {
         // set at least one batch of each archive_id to false, so it gets picked up in the queue
         update_task(pool, &a.archive_id, false, 0).await?;
+        info!("enqueued archive {}, batch #0", &a.archive_id);
     }
     Ok(())
 }
