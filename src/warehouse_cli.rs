@@ -1,9 +1,11 @@
 use anyhow::{bail, Result};
 use clap::{Parser, Subcommand};
+use log::info;
 use neo4rs::Graph;
 use std::path::PathBuf;
 
 use crate::{
+    enrich_whitepages::{self, Whitepages},
     load::{ingest_all, try_load_one_archive},
     load_exchange_orders,
     neo4j_init::{self, get_credentials_from_env, PASS_ENV, URI_ENV, USER_ENV},
@@ -72,6 +74,15 @@ pub enum Sub {
         /// size of each batch to load
         batch_size: Option<usize>,
     },
+    /// map owners of accounts from json file
+    EnrichWhitepages {
+        #[clap(long)]
+        /// file with owner map
+        json_file: PathBuf,
+        #[clap(long)]
+        /// size of each batch to load
+        batch_size: Option<usize>,
+    },
 }
 
 impl WarehouseCli {
@@ -128,6 +139,18 @@ impl WarehouseCli {
                     batch_size.unwrap_or(250),
                 )
                 .await?;
+            }
+            Sub::EnrichWhitepages {
+                json_file,
+                batch_size: _,
+            } => {
+                info!("whitepages");
+                let pool = try_db_connection_pool(self).await?;
+
+                let wp = Whitepages::parse_json_file(&json_file)?;
+                let owners_merged = enrich_whitepages::impl_batch_tx_insert(&pool, &wp).await?;
+
+                println!("SUCCESS: {} owner accounts linked", owners_merged);
             }
         };
         Ok(())
