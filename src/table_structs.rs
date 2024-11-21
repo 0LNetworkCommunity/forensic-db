@@ -89,6 +89,7 @@ pub struct WarehouseTxMaster {
     pub tx_hash: HashValue, // primary key
     pub relation_label: RelationLabel,
     pub sender: AccountAddress,
+    pub recipient: Option<AccountAddress>,
     pub function: String,
     pub epoch: u64,
     pub round: u64,
@@ -105,6 +106,7 @@ impl Default for WarehouseTxMaster {
             tx_hash: HashValue::zero(),
             relation_label: RelationLabel::Configuration,
             sender: AccountAddress::ZERO,
+            recipient: Some(AccountAddress::ZERO),
             function: "none".to_owned(),
             epoch: 0,
             round: 0,
@@ -139,10 +141,7 @@ impl WarehouseTxMaster {
             self.function,
             self.sender.to_hex_literal(),
             tx_args,
-            self.relation_label
-                .get_recipient()
-                .unwrap_or(self.sender)
-                .to_hex_literal(),
+            self.recipient.unwrap_or(self.sender).to_hex_literal(),
         )
     }
 

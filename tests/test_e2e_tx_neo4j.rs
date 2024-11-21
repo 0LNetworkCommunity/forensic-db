@@ -1,7 +1,7 @@
 mod support;
 use anyhow::Result;
 use diem_crypto::HashValue;
-use libra_forensic_db::cypher_templates::write_batch_tx_string;
+use libra_forensic_db::cypher_templates::{write_batch_tx_string, write_batch_user_create};
 use libra_forensic_db::load::try_load_one_archive;
 use libra_forensic_db::load_tx_cypher::tx_batch;
 use libra_forensic_db::scan::scan_dir_archive;
@@ -14,7 +14,8 @@ use neo4rs::query;
 use support::neo4j_testcontainer::start_neo4j_container;
 
 #[tokio::test]
-async fn test_parse_archive_into_neo4j() -> anyhow::Result<()> {
+async fn test_tx_batch() -> anyhow::Result<()> {
+    libra_forensic_db::log_setup();
     let archive_path = support::fixtures::v6_tx_manifest_fixtures_path();
     let (txs, events) = extract_current_transactions(&archive_path).await?;
     assert!(txs.len() == 705);
@@ -32,12 +33,13 @@ async fn test_parse_archive_into_neo4j() -> anyhow::Result<()> {
     // load in batches
     let archive_id = archive_path.file_name().unwrap().to_str().unwrap();
     let res = tx_batch(&txs, &graph, 100, archive_id).await?;
-    assert!(res.created_accounts == 135);
-    assert!(res.modified_accounts == 590);
+    dbg!(&res);
+    assert!(res.created_accounts == 60);
+    assert!(res.modified_accounts == 228);
     assert!(res.unchanged_accounts == 0);
-    assert!(res.created_tx == 725);
-    // CHECK
-    // get the sum of all transactions in db
+    assert!(res.created_tx == txs.len() as u64); // 705
+                                                 // CHECK
+                                                 // get the sum of all transactions in db
     let cypher_query = query(
         "MATCH ()-[r:Tx]->()
          RETURN count(r) AS total_tx_count",
@@ -70,7 +72,7 @@ async fn test_load_entry_point_tx() -> anyhow::Result<()> {
         .expect("could start index");
 
     let res = try_load_one_archive(man, &graph, 10).await?;
-    dbg!(&res);
+
     assert!(res.created_accounts == 135);
     assert!(res.modified_accounts == 590);
     assert!(res.unchanged_accounts == 0);
@@ -99,8 +101,68 @@ async fn insert_with_cypher_string() -> Result<()> {
     let list = vec![tx1, tx2, tx3];
 
     let list_str = WarehouseTxMaster::to_cypher_map(&list);
-    dbg!(&list_str);
-    let cypher_string = write_batch_tx_string(list_str);
+
+    let cypher_string = write_batch_tx_string(&list_str);
+
+    let c = start_neo4j_container();
+    let port = c.get_host_port_ipv4(7687);
+    let graph = get_neo4j_localhost_pool(port)
+        .await
+        .expect("could not get neo4j connection pool");
+    maybe_create_indexes(&graph).await?;
+
+    // Execute the query
+    let cypher_query = query(&cypher_string);
+    let mut res = graph.execute(cypher_query).await?;
+
+    let row = res.next().await?.unwrap();
+    // let created_accounts: i64 = row.get("created_accounts").unwrap();
+    // dbg!(&created_accounts);
+    // assert!(created_accounts == 1);
+    // let modified_accounts: i64 = row.get("modified_accounts").unwrap();
+    // assert!(modified_accounts == 0);
+    // let unchanged_accounts: i64 = row.get("unchanged_accounts").unwrap();
+    // assert!(unchanged_accounts == 0);
+    let created_tx: i64 = row.get("created_tx").unwrap();
+    assert!(created_tx == 3);
+
+    // get the sum of all transactions in db
+    let cypher_query = query(
+        "MATCH ()-[r:Tx]->()
+         RETURN count(r) AS total_tx_count",
+    );
+
+    // Execute the query
+    let mut result = graph.execute(cypher_query).await?;
+    let row = result.next().await?.unwrap();
+    let total_tx_count: i64 = row.get("total_tx_count").unwrap();
+    assert!(total_tx_count == 3);
+    Ok(())
+}
+
+#[tokio::test]
+async fn batch_users_create_unit() -> Result<()> {
+    let tx1 = WarehouseTxMaster {
+        tx_hash: HashValue::random(),
+        ..Default::default()
+    };
+
+    let tx2 = WarehouseTxMaster {
+        tx_hash: HashValue::random(),
+        ..Default::default()
+    };
+
+    let tx3 = WarehouseTxMaster {
+        tx_hash: HashValue::random(),
+        ..Default::default()
+    };
+
+    // two tx records
+    let list = vec![tx1, tx2, tx3];
+
+    let list_str = WarehouseTxMaster::to_cypher_map(&list);
+
+    let cypher_string = write_batch_user_create(&list_str);
 
     let c = start_neo4j_container();
     let port = c.get_host_port_ipv4(7687);
@@ -115,26 +177,25 @@ async fn insert_with_cypher_string() -> Result<()> {
 
     let row = res.next().await?.unwrap();
     let created_accounts: i64 = row.get("created_accounts").unwrap();
-    dbg!(&created_accounts);
+
     assert!(created_accounts == 1);
     let modified_accounts: i64 = row.get("modified_accounts").unwrap();
     assert!(modified_accounts == 0);
     let unchanged_accounts: i64 = row.get("unchanged_accounts").unwrap();
     assert!(unchanged_accounts == 0);
-    let created_tx: i64 = row.get("created_tx").unwrap();
-    assert!(created_tx == 2);
 
     // get the sum of all transactions in db
     let cypher_query = query(
-        "MATCH ()-[r:Tx]->()
-         RETURN count(r) AS total_tx_count",
+        "MATCH (a:Account)
+         RETURN count(a) AS total_users",
     );
 
     // Execute the query
     let mut result = graph.execute(cypher_query).await?;
     let row = result.next().await?.unwrap();
-    let total_tx_count: i64 = row.get("total_tx_count").unwrap();
-    assert!(total_tx_count == 2);
+    let total_tx_count: i64 = row.get("total_users").unwrap();
+    assert!(total_tx_count == 1);
+
     Ok(())
 }
 

@@ -3,11 +3,16 @@ use log::{error, info, warn};
 use neo4rs::{query, Graph};
 use std::{fmt::Display, thread, time::Duration};
 
-use crate::{cypher_templates::write_batch_tx_string, queue, table_structs::WarehouseTxMaster};
+use crate::{
+    cypher_templates::{write_batch_tx_string, write_batch_user_create},
+    queue,
+    table_structs::WarehouseTxMaster,
+};
 
 /// response for the batch insert tx
 #[derive(Debug, Clone)]
 pub struct BatchTxReturn {
+    pub unique_accounts: u64,
     pub created_accounts: u64,
     pub modified_accounts: u64,
     pub unchanged_accounts: u64,
@@ -16,7 +21,8 @@ pub struct BatchTxReturn {
 
 impl Display for BatchTxReturn {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Total Transactions - created accounts: {}, modified accounts: {}, unchanged accounts: {}, transactions created: {}",
+        write!(f, "Total Transactions - unique accounts: {}, created accounts: {}, modified accounts: {}, unchanged accounts: {}, transactions created: {}",
+          self.unique_accounts,
           self.created_accounts,
           self.modified_accounts,
           self.unchanged_accounts,
@@ -34,6 +40,7 @@ impl Default for BatchTxReturn {
 impl BatchTxReturn {
     pub fn new() -> Self {
         Self {
+            unique_accounts: 0,
             created_accounts: 0,
             modified_accounts: 0,
             unchanged_accounts: 0,
@@ -41,6 +48,7 @@ impl BatchTxReturn {
         }
     }
     pub fn increment(&mut self, new: &BatchTxReturn) {
+        self.unique_accounts += new.unique_accounts;
         self.created_accounts += new.created_accounts;
         self.modified_accounts += new.modified_accounts;
         self.unchanged_accounts += new.unchanged_accounts;
@@ -86,9 +94,9 @@ pub async fn tx_batch(
 
         match impl_batch_tx_insert(pool, c).await {
             Ok(batch) => {
-                dbg!(&batch);
+                // dbg!(&batch);
                 all_results.increment(&batch);
-                dbg!(&all_results);
+                // dbg!(&all_results);
                 queue::update_task(pool, archive_id, true, i).await?;
                 info!("...success");
             }
@@ -108,8 +116,26 @@ pub async fn impl_batch_tx_insert(
     pool: &Graph,
     batch_txs: &[WarehouseTxMaster],
 ) -> Result<BatchTxReturn> {
+    let mut unique_addrs = vec![];
+    batch_txs.iter().for_each(|t| {
+        if !unique_addrs.contains(&t.sender) {
+            unique_addrs.push(t.sender);
+        }
+        if let Some(r) = t.recipient {
+            if !unique_addrs.contains(&r) {
+                unique_addrs.push(r);
+            }
+        }
+    });
+
+    info!("unique accounts in batch: {}", unique_addrs.len());
+
     let list_str = WarehouseTxMaster::to_cypher_map(batch_txs);
-    let cypher_string = write_batch_tx_string(list_str);
+
+    // first insert the users
+    // cypher queries makes it annoying to do a single insert of users and
+    // txs
+    let cypher_string = write_batch_user_create(&list_str);
 
     // Execute the query
     let cypher_query = query(&cypher_string);
@@ -119,6 +145,10 @@ pub async fn impl_batch_tx_insert(
         .context("execute query error")?;
 
     let row = res.next().await?.context("no row returned")?;
+
+    let unique_accounts: u64 = row
+        .get("unique_accounts")
+        .context("no unique_accounts field")?;
     let created_accounts: u64 = row
         .get("created_accounts")
         .context("no created_accounts field")?;
@@ -128,9 +158,27 @@ pub async fn impl_batch_tx_insert(
     let unchanged_accounts: u64 = row
         .get("unchanged_accounts")
         .context("no unchanged_accounts field")?;
+
+    let cypher_string = write_batch_tx_string(&list_str);
+    // Execute the query
+    let cypher_query = query(&cypher_string);
+    let mut res = pool
+        .execute(cypher_query)
+        .await
+        .context("execute query error")?;
+    let row = res.next().await?.context("no row returned")?;
     let created_tx: u64 = row.get("created_tx").context("no created_tx field")?;
 
+    if unique_accounts != unique_addrs.len() as u64 {
+        error!(
+            "number of accounts in batch {} is not equal to unique accounts in query: {}",
+            unique_addrs.len(),
+            unique_accounts,
+        );
+    }
+
     Ok(BatchTxReturn {
+        unique_accounts,
         created_accounts,
         modified_accounts,
         unchanged_accounts,

@@ -2,24 +2,13 @@
 use anyhow::Result;
 
 // TODO move this to a .CQL file so we can lint and debug
-pub fn write_batch_tx_string(list_str: String) -> String {
+pub fn write_batch_tx_string(list_str: &str) -> String {
     format!(
         r#"
 WITH {list_str} AS tx_data
 UNWIND tx_data AS tx
-// Deduplicate sender and recipient accounts
-WITH COLLECT(DISTINCT [tx.sender, tx.recipient]) AS unique_address, tx
 
-UNWIND unique_address AS address
-// Merge unique Accounts
-MERGE (account:Account {{address: address}})
-ON CREATE SET
-    account.created_at = timestamp(),
-    account.modified_at = null
-ON MATCH SET
-    account.modified_at = timestamp()
-
-// CREATE Transaction Relationship and set creation flag
+// NOTE: users should have already been merged in a previous call
 MERGE (from:Account {{address: tx.sender}})
 MERGE (to:Account {{address: tx.recipient}})
 MERGE (from)-[rel:Tx {{tx_hash: tx.tx_hash}}]->(to)
@@ -33,18 +22,39 @@ SET
     rel.relation = tx.relation,
     rel.function = tx.function
 
-// Count created, modified, and unchanged Account nodes and Tx relationships based on current timestamp
-WITH from, to, rel
-UNWIND [from, to] AS all_nodes
-WITH DISTINCT all_nodes AS node, rel
+WITH rel
 
 RETURN
-  // COUNT(CASE WHEN node.created_at = timestamp() THEN 1 END) AS created_accounts,
-  COUNT(node) AS created_accounts,
+  COUNT(CASE WHEN rel.created_at = timestamp() THEN 1 END) AS created_tx,
+  COUNT(CASE WHEN rel.modified_at = timestamp() AND rel.created_at < timestamp() THEN 1 END) AS modified_tx
+"#
+    )
+}
 
+pub fn write_batch_user_create(list_str: &str) -> String {
+    format!(
+        r#"
+WITH {list_str} AS tx_data
+UNWIND tx_data AS tx
+WITH COLLECT(DISTINCT tx.sender) + COLLECT(DISTINCT tx.recipient) AS unique_addresses
+// Deduplicate the combined list to ensure only unique addresses
+UNWIND unique_addresses AS each_addr
+WITH COLLECT(DISTINCT each_addr) as unique_array
+
+UNWIND unique_array AS addr
+// Merge unique Accounts
+MERGE (node:Account {{address: addr}})
+ON CREATE SET
+    node.created_at = timestamp(),
+    node.modified_at = null
+ON MATCH SET
+    node.modified_at = timestamp()
+
+RETURN
+  COUNT(node) AS unique_accounts,
+  COUNT(CASE WHEN node.created_at = timestamp() THEN 1 END) AS created_accounts,
   COUNT(CASE WHEN node.modified_at = timestamp() AND node.created_at < timestamp() THEN 1 END) AS modified_accounts,
-  COUNT(CASE WHEN node.modified_at < timestamp() THEN 1 END) AS unchanged_accounts,
-  COUNT(CASE WHEN rel.created_at = timestamp() THEN 1 END) AS created_tx
+  COUNT(CASE WHEN node.modified_at < timestamp() THEN 1 END) AS unchanged_accounts
 "#
     )
 }
@@ -66,7 +76,7 @@ pub fn to_cypher_object<T: Serialize>(object: &T, prefix: Option<&str>) -> Resul
     // Serialize the struct to a JSON value
 
     let serialized_value = serde_json::to_value(object).expect("Failed to serialize");
-    dbg!(&serialized_value);
+    // dbg!(&serialized_value);
 
     // Convert the JSON value into a map for easy processing
     let map = if let Value::Object(obj) = serialized_value {
