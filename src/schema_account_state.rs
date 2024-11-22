@@ -1,5 +1,15 @@
 use libra_types::exports::AccountAddress;
 
+use crate::scan::FrameworkVersion;
+
+// holds timestamp, chain height, and epoch
+#[derive(Debug, Clone, Default)]
+pub struct WarehouseTime {
+    pub framework_version: FrameworkVersion,
+    pub timestamp: u64,
+    pub version: u64,
+    pub epoch: u64,
+}
 #[derive(Debug, Clone)]
 /// The basic information for an account
 pub struct WarehouseAccState {
@@ -9,6 +19,19 @@ pub struct WarehouseAccState {
     pub balance: u64,
     pub slow_wallet_locked: u64,
     pub slow_wallet_transferred: u64,
+}
+
+impl Default for WarehouseAccState {
+    fn default() -> Self {
+        Self {
+            address: AccountAddress::ZERO,
+            time: Default::default(),
+            sequence_num: Default::default(),
+            balance: Default::default(),
+            slow_wallet_locked: Default::default(),
+            slow_wallet_transferred: Default::default(),
+        }
+    }
 }
 
 impl WarehouseAccState {
@@ -28,29 +51,19 @@ impl WarehouseAccState {
         self.time.epoch = epoch;
     }
 }
-// holds timestamp, chain height, and epoch
-#[derive(Debug, Clone, Default)]
-pub struct WarehouseTime {
-    pub timestamp: u64,
-    pub version: u64,
-    pub epoch: u64,
-}
 
 impl WarehouseAccState {
     /// creates one transaction record in the cypher query map format
     /// Note original data was in an RFC rfc3339 with Z for UTC, Cypher seems to prefer with offsets +00000
     pub fn to_cypher_object_template(&self) -> String {
         format!(
-            r#"{{address: {}, balance: {} }}"#,
-            self.address,
+            r#"{{address: "{}", balance: {}, version: {}, sequence_num: {}, slow_locked: {}, slow_transfer: {} }}"#,
+            self.address.to_hex_literal(),
             self.balance,
-            // self.order_type,
-            // self.amount,
-            // self.price,
-            // self.created_at.to_rfc3339(),
-            // self.created_at.timestamp_micros(),
-            // self.filled_at.to_rfc3339(),
-            // self.filled_at.timestamp_micros()
+            self.time.version,
+            self.sequence_num,
+            self.slow_wallet_locked,
+            self.slow_wallet_transferred,
         )
     }
 
@@ -72,8 +85,7 @@ impl WarehouseAccState {
   WITH {list_str} AS tx_data
   UNWIND tx_data AS tx
 
-  MATCH (addr:Account {{address: tx.address}})
-
+  MERGE (addr:Account {{address: tx.address}})
   MERGE (snap:Snapshot {{address: tx.address, balance: tx.balance }})
   MERGE (addr)-[rel:State]->(snap)
 

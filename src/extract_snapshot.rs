@@ -3,18 +3,36 @@ use std::path::Path;
 use anyhow::Result;
 use diem_types::account_view::AccountView;
 use libra_backwards_compatibility::version_five::{
-    balance_v5::BalanceResourceV5, ol_wallet::SlowWalletResourceV5,
-    state_snapshot_v5::v5_accounts_from_manifest_path,
+    balance_v5::BalanceResourceV5,
+    ol_wallet::SlowWalletResourceV5,
+    state_snapshot_v5::{v5_accounts_from_manifest_path, v5_read_from_snapshot_manifest},
 };
 use libra_storage::read_snapshot::{accounts_from_snapshot_backup, load_snapshot_manifest};
-use libra_types::exports::AccountAddress;
+use libra_types::{
+    exports::AccountAddress,
+    move_resource::{libra_coin::LibraCoinStoreResource, wallet::SlowWalletResource},
+};
 use log::{error, info, warn};
 
-use crate::schema_account_state::WarehouseAccState;
+use crate::{
+    scan::FrameworkVersion,
+    schema_account_state::{WarehouseAccState, WarehouseTime},
+};
 
 // uses libra-compatibility to parse the v5 manifest files, and decode v5 format bytecode into current version data structures (v6+);
 pub async fn extract_v5_snapshot(v5_manifest_path: &Path) -> Result<Vec<WarehouseAccState>> {
+    // NOTE: this is duplicated with next step.
+    let manifest_data = v5_read_from_snapshot_manifest(v5_manifest_path)?;
     let account_blobs = v5_accounts_from_manifest_path(v5_manifest_path).await?;
+
+    // TODO: see below, massively inefficient
+    let time = WarehouseTime {
+        framework_version: FrameworkVersion::V5,
+        timestamp: 0,
+        version: manifest_data.version,
+        epoch: 0,
+    };
+
     info!("account records found: {}", &account_blobs.len());
     let mut warehouse_state = vec![];
     for el in account_blobs.iter() {
@@ -26,14 +44,16 @@ pub async fn extract_v5_snapshot(v5_manifest_path: &Path) -> Result<Vec<Warehous
                 let cast_address = AccountAddress::from_hex_literal(&address_literal)?;
                 let mut s = WarehouseAccState::new(cast_address);
 
-                if let Some(r) = acc.get_diem_account_resource().ok() {
+                s.time = time.clone();
+
+                if let Ok(r) = acc.get_diem_account_resource() {
                     s.sequence_num = r.sequence_number();
                 }
 
-                if let Some(b) = acc.get_resource::<BalanceResourceV5>().ok() {
+                if let Ok(b) = acc.get_resource::<BalanceResourceV5>() {
                     s.balance = b.coin()
                 }
-                if let Some(sw) = acc.get_resource::<SlowWalletResourceV5>().ok() {
+                if let Ok(sw) = acc.get_resource::<SlowWalletResourceV5>() {
                     s.slow_wallet_locked = sw.unlocked;
                     s.slow_wallet_transferred = sw.transferred;
                 }
@@ -58,6 +78,15 @@ pub async fn extract_current_snapshot(archive_path: &Path) -> Result<Vec<Warehou
     );
     let manifest = load_snapshot_manifest(&manifest_file)?;
 
+    // TODO: this is not memory efficient, will be massively duplicating data
+    // when the insert query could just use the warehouse time, for entire state
+    let time = WarehouseTime {
+        version: manifest.version,
+        epoch: manifest.epoch,
+        framework_version: FrameworkVersion::V7,
+        timestamp: 0,
+    };
+
     let accs = accounts_from_snapshot_backup(manifest, archive_path).await?;
 
     info!("SUCCESS: backup loaded. # accounts: {}", &accs.len());
@@ -66,7 +95,23 @@ pub async fn extract_current_snapshot(archive_path: &Path) -> Result<Vec<Warehou
     let mut warehouse_state = vec![];
     for el in accs.iter() {
         if let Some(address) = el.get_account_address()? {
-            let s = WarehouseAccState::new(address);
+            let mut s = WarehouseAccState::new(address);
+
+            s.time = time.clone();
+
+            if let Some(r) = el.get_account_resource()? {
+                s.sequence_num = r.sequence_number();
+            }
+
+            if let Some(b) = el.get_resource::<LibraCoinStoreResource>()? {
+                s.balance = b.coin();
+            }
+
+            if let Some(sw) = el.get_resource::<SlowWalletResource>()? {
+                s.slow_wallet_locked = sw.unlocked;
+                s.slow_wallet_transferred = sw.transferred;
+            }
+
             warehouse_state.push(s);
         }
     }

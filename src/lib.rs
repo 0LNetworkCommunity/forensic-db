@@ -1,7 +1,7 @@
+pub mod batch_tx_type;
 pub mod cypher_templates;
 pub mod enrich_exchange_onboarding;
 pub mod enrich_whitepages;
-pub mod schema_exchange_orders;
 pub mod extract_snapshot;
 pub mod extract_transactions;
 pub mod load;
@@ -12,6 +12,7 @@ pub mod neo4j_init;
 pub mod queue;
 pub mod scan;
 pub mod schema_account_state;
+pub mod schema_exchange_orders;
 pub mod schema_transaction;
 pub mod unzip_temp;
 pub mod warehouse_cli;

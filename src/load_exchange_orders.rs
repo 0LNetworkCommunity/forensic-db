@@ -5,8 +5,8 @@ use log::{error, info, warn};
 use neo4rs::{query, Graph};
 
 use crate::{
-    schema_exchange_orders::{read_orders_from_file, ExchangeOrder},
     queue,
+    schema_exchange_orders::{read_orders_from_file, ExchangeOrder},
 };
 
 pub async fn swap_batch(

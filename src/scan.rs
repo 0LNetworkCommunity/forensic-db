@@ -23,15 +23,42 @@ pub struct ManifestInfo {
     /// the name of the directory, as a unique archive identifier
     pub archive_id: String,
     /// what libra version were these files encoded with (v5 etc)
-    pub version: EncodingVersion,
+    pub version: FrameworkVersion,
     /// contents of the manifest
     pub contents: BundleContent,
     /// processed
     pub processed: bool,
 }
 
-#[derive(Clone, Debug)]
-pub enum EncodingVersion {
+impl ManifestInfo {
+    pub fn try_set_framework_version(&mut self) -> FrameworkVersion {
+        match self.contents {
+            BundleContent::Unknown => return FrameworkVersion::Unknown,
+            BundleContent::StateSnapshot => {
+                // first check if the v7 manifest will parse
+                if load_snapshot_manifest(&self.archive_dir).is_ok() {
+                    self.version = FrameworkVersion::V7;
+                }
+
+                if v5_read_from_snapshot_manifest(&self.archive_dir).is_ok() {
+                    self.version = FrameworkVersion::V5;
+                }
+            }
+            BundleContent::Transaction => {
+                // TODO: v5 manifests appear to have the same format this is a noop
+                if v5_read_from_transaction_manifest(&self.archive_dir).is_ok() {
+                    self.version = FrameworkVersion::V5;
+                }
+            }
+            BundleContent::EpochEnding => {}
+        }
+
+        FrameworkVersion::Unknown
+    }
+}
+#[derive(Clone, Debug, Default)]
+pub enum FrameworkVersion {
+    #[default]
     Unknown,
     V5,
     V6,
@@ -74,19 +101,23 @@ pub fn scan_dir_archive(
 
     for entry in glob(&pattern)? {
         match entry {
-            Ok(path) => {
-                let dir = path.parent().context("no parent dir found")?.to_owned();
-                let contents = test_content(&path);
+            Ok(manifest_path) => {
+                let dir = manifest_path
+                    .parent()
+                    .context("no parent dir found")?
+                    .to_owned();
+                let contents = test_content(&manifest_path);
                 let archive_id = dir.file_name().unwrap().to_str().unwrap().to_owned();
-                let m = ManifestInfo {
+                let mut m = ManifestInfo {
                     archive_dir: dir.clone(),
                     archive_id,
-                    version: test_version(&contents, &path),
+                    version: FrameworkVersion::Unknown,
                     contents,
                     processed: false,
                 };
+                m.try_set_framework_version();
 
-                archive.insert(path.clone(), m);
+                archive.insert(manifest_path.clone(), m);
             }
             Err(e) => println!("{:?}", e),
         }
@@ -108,29 +139,4 @@ fn test_content(manifest_path: &Path) -> BundleContent {
     };
 
     BundleContent::Unknown
-}
-
-fn test_version(content: &BundleContent, manifest_file: &Path) -> EncodingVersion {
-    match content {
-        BundleContent::Unknown => return EncodingVersion::Unknown,
-        BundleContent::StateSnapshot => {
-            // first check if the v7 manifest will parse
-            if load_snapshot_manifest(manifest_file).is_ok() {
-                return EncodingVersion::V7;
-            }
-
-            if v5_read_from_snapshot_manifest(manifest_file).is_ok() {
-                return EncodingVersion::V5;
-            }
-        }
-        BundleContent::Transaction => {
-            // TODO: v5 manifests appear to have the same format this is a noop
-            if v5_read_from_transaction_manifest(manifest_file).is_ok() {
-                return EncodingVersion::V5;
-            }
-        }
-        BundleContent::EpochEnding => {}
-    }
-
-    EncodingVersion::Unknown
 }
