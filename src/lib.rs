@@ -1,4 +1,5 @@
 pub mod cypher_templates;
+pub mod enrich_exchange_onboarding;
 pub mod enrich_whitepages;
 pub mod exchange_orders;
 pub mod extract_snapshot;

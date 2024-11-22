@@ -5,12 +5,23 @@ use neo4rs::Graph;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::path::Path;
 
+// Exchange onboard json files are formatted like so:
+// NOTE: that the address string is flexible:
+//  can be in upper or lowercase and with 0x prepended or not.
+// [
+//   {
+//     "user_id": 189,
+//     "onboarding_addr": "01F3B9C815FEB654718DE5D53CD665699A2B80951B696939E2D9EC27D0126BAD"
+//   },
+//   ...
+// ]
+
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Whitepages {
+pub struct ExchangeOnRamp {
     #[serde(deserialize_with = "from_any_string")]
-    address: Option<AccountAddress>,
-    owner: Option<String>,
-    address_note: Option<String>,
+    onboarding_addr: Option<AccountAddress>,
+    // TODO: this should be string, since exchanges/bridges will have different identifiers
+    user_id: u64,
 }
 
 fn from_any_string<'de, D>(deserializer: D) -> Result<Option<AccountAddress>, D::Error>
@@ -23,10 +34,12 @@ where
     if !lower.contains("0x") {
         lower = format!("0x{}", lower);
     }
+
     Ok(AccountAddress::from_hex_literal(&lower).ok())
 }
 
-impl Whitepages {
+// TODO: boilerplate copy of enrich_whitepages
+impl ExchangeOnRamp {
     pub fn parse_json_file(path: &Path) -> Result<Vec<Self>> {
         let s = std::fs::read_to_string(path)?;
         Ok(serde_json::from_str(&s)?)
@@ -34,10 +47,9 @@ impl Whitepages {
 
     pub fn to_cypher_object_template(&self) -> String {
         format!(
-            r#"{{owner: "{}", address: "{}" }}"#,
-            self.owner.as_ref().unwrap(),
-            self.address.as_ref().unwrap().to_hex_literal(),
-            // self.address_note,
+            r#"{{user_id: "{}", address: "{}" }}"#,
+            self.user_id,
+            self.onboarding_addr.as_ref().unwrap().to_hex_literal(),
         )
     }
 
@@ -46,10 +58,9 @@ impl Whitepages {
         let mut list_literal = "".to_owned();
         for el in list {
             // skip empty records
-            if el.owner.is_none() {
+            if el.onboarding_addr.is_none() {
                 continue;
             };
-
             let s = el.to_cypher_object_template();
             list_literal.push_str(&s);
             list_literal.push(',');
@@ -64,10 +75,9 @@ impl Whitepages {
   WITH {list_str} AS owner_data
   UNWIND owner_data AS each_owner
 
+  MATCH (id:SwapAccount {{swap_id: each_owner.user_id}})
   MATCH (addr:Account {{address: each_owner.address}})
-
-  MERGE (own:Owner {{alias: each_owner.owner}})
-  MERGE (own)-[rel:Owns]->(addr)
+  MERGE (addr)-[rel:OnRamp]->(id)
 
   WITH rel
   RETURN
@@ -77,24 +87,22 @@ impl Whitepages {
     }
 }
 
-pub async fn impl_batch_tx_insert(pool: &Graph, batch_txs: &[Whitepages]) -> Result<u64> {
+pub async fn impl_batch_tx_insert(pool: &Graph, batch_txs: &[ExchangeOnRamp]) -> Result<u64> {
     let mut unique_owners = vec![];
     batch_txs.iter().for_each(|t| {
-        if let Some(o) = &t.owner {
-            if !unique_owners.contains(&o) {
-                unique_owners.push(o);
-            }
+        if !unique_owners.contains(&t.user_id) {
+            unique_owners.push(t.user_id);
         }
     });
 
     info!("unique owner links in batch: {}", unique_owners.len());
 
-    let list_str = Whitepages::to_cypher_map(batch_txs);
+    let list_str = ExchangeOnRamp::to_cypher_map(batch_txs);
 
     // first insert the users
     // cypher queries makes it annoying to do a single insert of users and
     // txs
-    let cypher_string = Whitepages::cypher_batch_link_owner(&list_str);
+    let cypher_string = ExchangeOnRamp::cypher_batch_link_owner(&list_str);
 
     // Execute the query
     let cypher_query = neo4rs::query(&cypher_string);

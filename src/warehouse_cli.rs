@@ -5,6 +5,7 @@ use neo4rs::Graph;
 use std::path::PathBuf;
 
 use crate::{
+    enrich_exchange_onboarding::{self, ExchangeOnRamp},
     enrich_whitepages::{self, Whitepages},
     load::{ingest_all, try_load_one_archive},
     load_exchange_orders,
@@ -74,14 +75,17 @@ pub enum Sub {
         /// size of each batch to load
         batch_size: Option<usize>,
     },
+    /// link an onboarding address to an exchange ID
+    EnrichExchangeOnramp {
+        #[clap(long)]
+        /// file with onboarding accounts
+        onboarding_json: PathBuf,
+    },
     /// map owners of accounts from json file
     EnrichWhitepages {
         #[clap(long)]
         /// file with owner map
-        json_file: PathBuf,
-        #[clap(long)]
-        /// size of each batch to load
-        batch_size: Option<usize>,
+        owner_json: PathBuf,
     },
 }
 
@@ -140,14 +144,23 @@ impl WarehouseCli {
                 )
                 .await?;
             }
+            Sub::EnrichExchangeOnramp { onboarding_json } => {
+                info!("exchange onramp");
+                let pool = try_db_connection_pool(self).await?;
+
+                let wp = ExchangeOnRamp::parse_json_file(onboarding_json)?;
+                let owners_merged =
+                    enrich_exchange_onboarding::impl_batch_tx_insert(&pool, &wp).await?;
+
+                println!("SUCCESS: {} exchange onramp accounts linked", owners_merged);
+            }
             Sub::EnrichWhitepages {
-                json_file,
-                batch_size: _,
+                owner_json: json_file,
             } => {
                 info!("whitepages");
                 let pool = try_db_connection_pool(self).await?;
 
-                let wp = Whitepages::parse_json_file(&json_file)?;
+                let wp = Whitepages::parse_json_file(json_file)?;
                 let owners_merged = enrich_whitepages::impl_batch_tx_insert(&pool, &wp).await?;
 
                 println!("SUCCESS: {} owner accounts linked", owners_merged);
