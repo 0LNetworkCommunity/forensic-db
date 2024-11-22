@@ -10,6 +10,7 @@ use libra_backwards_compatibility::version_five::{
 use libra_storage::read_snapshot::load_snapshot_manifest;
 use std::{
     collections::BTreeMap,
+    fmt,
     path::{Path, PathBuf},
 };
 #[derive(Clone, Debug)]
@@ -63,6 +64,12 @@ pub enum FrameworkVersion {
     V5,
     V6,
     V7,
+}
+
+impl fmt::Display for FrameworkVersion {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", &self)
+    }
 }
 
 #[derive(Clone, Debug, clap::ValueEnum)]

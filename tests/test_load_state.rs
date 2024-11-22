@@ -13,9 +13,6 @@ use support::{
 #[tokio::test]
 async fn test_snapshot_unit() -> anyhow::Result<()> {
     libra_forensic_db::log_setup();
-    // let manifest_file = v5_state_manifest_fixtures_path().join("state.manifest");
-    // assert!(manifest_file.exists());
-    // let s = extract_v5_snapshot(&manifest_file).await?;
 
     let snap1 = WarehouseAccState::default();
     let snap2 = WarehouseAccState::default();

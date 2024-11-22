@@ -57,13 +57,14 @@ impl WarehouseAccState {
     /// Note original data was in an RFC rfc3339 with Z for UTC, Cypher seems to prefer with offsets +00000
     pub fn to_cypher_object_template(&self) -> String {
         format!(
-            r#"{{address: "{}", balance: {}, version: {}, sequence_num: {}, slow_locked: {}, slow_transfer: {} }}"#,
+            r#"{{address: "{}", balance: {}, version: {}, sequence_num: {}, slow_locked: {}, slow_transfer: {}, framework_version: "{}" }}"#,
             self.address.to_hex_literal(),
             self.balance,
             self.time.version,
             self.sequence_num,
             self.slow_wallet_locked,
             self.slow_wallet_transferred,
+            self.time.framework_version,
         )
     }
 
@@ -86,8 +87,8 @@ impl WarehouseAccState {
   UNWIND tx_data AS tx
 
   MERGE (addr:Account {{address: tx.address}})
-  MERGE (snap:Snapshot {{address: tx.address, balance: tx.balance }})
-  MERGE (addr)-[rel:State]->(snap)
+  MERGE (snap:Snapshot {{address: tx.address, balance: tx.balance, framework_version: tx.framework_version, version: tx.version, sequence_num: tx.sequence_num, slow_locked: tx.slow_locked, slow_transfer: tx.slow_transfer }})
+  MERGE (addr)-[rel:State {{version: tx.version}} ]->(snap)
 
   RETURN
       COUNT(snap) AS merged_snapshots
