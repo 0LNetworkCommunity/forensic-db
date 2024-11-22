@@ -10,7 +10,8 @@ pub mod load_tx_cypher;
 pub mod neo4j_init;
 pub mod queue;
 pub mod scan;
-pub mod table_structs;
+pub mod schema_account_state;
+pub mod schema_transaction;
 pub mod unzip_temp;
 pub mod warehouse_cli;
 

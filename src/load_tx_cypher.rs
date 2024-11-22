@@ -6,7 +6,7 @@ use std::{fmt::Display, thread, time::Duration};
 use crate::{
     cypher_templates::{write_batch_tx_string, write_batch_user_create},
     queue,
-    table_structs::WarehouseTxMaster,
+    schema_transaction::WarehouseTxMaster,
 };
 
 /// response for the batch insert tx

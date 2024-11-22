@@ -5,7 +5,6 @@ use diem_crypto::HashValue;
 use diem_types::account_config::{DepositEvent, WithdrawEvent};
 use libra_backwards_compatibility::sdk::v7_libra_framework_sdk_builder::EntryFunctionCall;
 use libra_types::{exports::AccountAddress, move_resource::coin_register_event::CoinRegisterEvent};
-use neo4rs::{BoltList, BoltMap, BoltType};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -44,24 +43,9 @@ impl RelationLabel {
     }
 }
 
-// TODO: deprecate?
-#[derive(Debug, Clone)]
-pub struct TransferTx {
-    pub tx_hash: HashValue,
-    pub to: AccountAddress,
-    pub amount: u64,
-}
-
-// TODO: deprecate?
-#[derive(Debug, Clone)]
-pub struct MiscTx {
-    pub tx_hash: HashValue, // primary key
-    pub data: serde_json::Value,
-}
-
 #[derive(Debug, Serialize, Deserialize)]
 pub struct WarehouseEvent {
-    pub tx_hash: HashValue, // primary key
+    pub tx_hash: HashValue,
     pub event: UserEventTypes,
     pub event_name: String,
     pub data: serde_json::Value,
@@ -86,7 +70,7 @@ pub enum EntryFunctionArgs {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct WarehouseTxMaster {
-    pub tx_hash: HashValue, // primary key
+    pub tx_hash: HashValue,
     pub relation_label: RelationLabel,
     pub sender: AccountAddress,
     pub recipient: Option<AccountAddress>,
@@ -114,7 +98,6 @@ impl Default for WarehouseTxMaster {
             block_datetime: DateTime::<Utc>::from_timestamp_micros(0).unwrap(),
             expiration_timestamp: 0,
             entry_function: None,
-            // args: json!(""),
             events: vec![],
         }
     }
@@ -156,77 +139,4 @@ impl WarehouseTxMaster {
         list_literal.pop(); // need to drop last comma ","
         format!("[{}]", list_literal)
     }
-
-    // NOTE: this seems to be memory inefficient.
-    // also creates a vendor lock-in with neo4rs instead of any open cypher.
-    // Hence the query templating
-    pub fn to_boltmap(&self) -> BoltMap {
-        let mut map = BoltMap::new();
-        map.put("tx_hash".into(), self.tx_hash.to_string().into());
-        map.put("sender".into(), self.sender.clone().to_hex_literal().into());
-        map.put(
-            "recipient".into(),
-            self.sender.clone().to_hex_literal().into(),
-        );
-
-        // TODO
-        // map.put("epoch".into(), self.epoch.into());
-        // map.put("round".into(), self.round.into());
-        // map.put("epoch".into(), self.epoch.into());
-        // map.put("block_timestamp".into(), self.block_timestamp.into());
-        // map.put(
-        //     "expiration_timestamp".into(),
-        //     self.expiration_timestamp.into(),
-        // );
-        map
-    }
-    /// how one might implement the bolt types.
-    pub fn slice_to_bolt_list(txs: &[Self]) -> BoltType {
-        let mut list = BoltList::new();
-        for el in txs {
-            let map = el.to_boltmap();
-            list.push(BoltType::Map(map));
-        }
-        BoltType::List(list)
-    }
-}
-
-#[derive(Debug, Clone)]
-/// The basic information for an account
-pub struct WarehouseRecord {
-    pub account: WarehouseAccount,
-    pub time: WarehouseTime,
-    pub balance: Option<WarehouseBalance>,
-}
-
-impl WarehouseRecord {
-    pub fn new(address: AccountAddress) -> Self {
-        Self {
-            account: WarehouseAccount { address },
-            time: WarehouseTime::default(),
-            balance: Some(WarehouseBalance::default()),
-        }
-    }
-    pub fn set_time(&mut self, timestamp: u64, version: u64, epoch: u64) {
-        self.time.timestamp = timestamp;
-        self.time.version = version;
-        self.time.epoch = epoch;
-    }
-}
-// holds timestamp, chain height, and epoch
-#[derive(Debug, Clone, Default)]
-pub struct WarehouseTime {
-    pub timestamp: u64,
-    pub version: u64,
-    pub epoch: u64,
-}
-#[derive(Debug, Clone)]
-pub struct WarehouseAccount {
-    pub address: AccountAddress,
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct WarehouseBalance {
-    // balances in v6+ terms
-    pub balance: u64,
 }

@@ -5,7 +5,7 @@ use libra_forensic_db::cypher_templates::{write_batch_tx_string, write_batch_use
 use libra_forensic_db::load::try_load_one_archive;
 use libra_forensic_db::load_tx_cypher::tx_batch;
 use libra_forensic_db::scan::scan_dir_archive;
-use libra_forensic_db::table_structs::WarehouseTxMaster;
+use libra_forensic_db::schema_transaction::WarehouseTxMaster;
 use libra_forensic_db::{
     extract_transactions::extract_current_transactions,
     neo4j_init::{get_neo4j_localhost_pool, maybe_create_indexes},
@@ -199,45 +199,46 @@ async fn batch_users_create_unit() -> Result<()> {
     Ok(())
 }
 
-#[ignore] // For reference deprecated in favor of string templates
-#[tokio::test]
-async fn test_bolt_serialize() -> Result<()> {
-    let c = start_neo4j_container();
-    let port = c.get_host_port_ipv4(7687);
-    let graph = get_neo4j_localhost_pool(port)
-        .await
-        .expect("could not get neo4j connection pool");
-    maybe_create_indexes(&graph).await?;
+// NOTE: Left commented for reference. Bolt types deprecated in favor of string templates
+// #[ignore]
+// #[tokio::test]
+// async fn test_bolt_serialize() -> Result<()> {
+//     let c = start_neo4j_container();
+//     let port = c.get_host_port_ipv4(7687);
+//     let graph = get_neo4j_localhost_pool(port)
+//         .await
+//         .expect("could not get neo4j connection pool");
+//     maybe_create_indexes(&graph).await?;
 
-    // Define a batch of transactions as a vector of HashMaps
-    let transactions = vec![WarehouseTxMaster::default()];
-    let bolt_list = WarehouseTxMaster::slice_to_bolt_list(&transactions);
+//     // Define a batch of transactions as a vector of HashMaps
+//     let transactions = vec![WarehouseTxMaster::default()];
+//     let bolt_list = WarehouseTxMaster::slice_to_bolt_list(&transactions);
 
-    // Build the query and add the transactions as a parameter
-    let cypher_query = query(
-        "UNWIND $transactions AS tx
-         MERGE (from:Account {address: tx.sender})
-         MERGE (to:Account {address: tx.recipient})
-         MERGE (from)-[:Tx {tx_hash: tx.tx_hash}]->(to)",
-    )
-    .param("transactions", bolt_list); // Pass the batch as a parameter
+//     // Build the query and add the transactions as a parameter
+//     let cypher_query = query(
+//         "UNWIND $transactions AS tx
+//          MERGE (from:Account {address: tx.sender})
+//          MERGE (to:Account {address: tx.recipient})
+//          MERGE (from)-[:Tx {tx_hash: tx.tx_hash}]->(to)",
+//     )
+//     .param("transactions", bolt_list); // Pass the batch as a parameter
 
-    // Execute the query
-    graph.run(cypher_query).await?;
+//     // Execute the query
+//     graph.run(cypher_query).await?;
 
-    // get the sum of all transactions in db
-    let cypher_query = query(
-        "MATCH ()-[r:Tx]->()
-         RETURN count(r) AS total_tx_count",
-    );
+//     // get the sum of all transactions in db
+//     let cypher_query = query(
+//         "MATCH ()-[r:Tx]->()
+//          RETURN count(r) AS total_tx_count",
+//     );
 
-    // Execute the query
-    let mut result = graph.execute(cypher_query).await?;
+//     // Execute the query
+//     let mut result = graph.execute(cypher_query).await?;
 
-    // Fetch the first row only
-    let row = result.next().await?.unwrap();
-    let total_tx_count: i64 = row.get("total_tx_count").unwrap();
-    assert!(total_tx_count == 1);
+//     // Fetch the first row only
+//     let row = result.next().await?.unwrap();
+//     let total_tx_count: i64 = row.get("total_tx_count").unwrap();
+//     assert!(total_tx_count == 1);
 
-    Ok(())
-}
+//     Ok(())
+// }

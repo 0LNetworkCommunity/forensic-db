@@ -1,4 +1,4 @@
-use crate::table_structs::{RelationLabel, UserEventTypes, WarehouseEvent, WarehouseTxMaster};
+use crate::schema_transaction::{RelationLabel, UserEventTypes, WarehouseEvent, WarehouseTxMaster};
 use anyhow::Result;
 use chrono::DateTime;
 use diem_crypto::HashValue;
