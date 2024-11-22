@@ -7,6 +7,8 @@ pub struct WarehouseAccState {
     pub time: WarehouseTime,
     pub sequence_num: u64,
     pub balance: Option<u64>,
+    pub slow_wallet_locked: u64,
+    pub slow_wallet_transferred: u64,
 }
 
 impl WarehouseAccState {
@@ -16,6 +18,9 @@ impl WarehouseAccState {
             sequence_num: 0,
             time: WarehouseTime::default(),
             balance: None,
+            slow_wallet_locked: 0,
+            slow_wallet_transferred: 0,
+
         }
     }
     pub fn set_time(&mut self, timestamp: u64, version: u64, epoch: u64) {
