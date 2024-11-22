@@ -5,7 +5,7 @@ use log::{error, info, warn};
 use neo4rs::{query, Graph};
 
 use crate::{
-    exchange_orders::{read_orders_from_file, ExchangeOrder},
+    schema_exchange_orders::{read_orders_from_file, ExchangeOrder},
     queue,
 };
 

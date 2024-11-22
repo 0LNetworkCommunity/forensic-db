@@ -6,7 +6,7 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use libra_forensic_db::{
-    exchange_orders::{read_orders_from_file, ExchangeOrder},
+    schema_exchange_orders::{read_orders_from_file, ExchangeOrder},
     load_exchange_orders,
     neo4j_init::{get_neo4j_localhost_pool, maybe_create_indexes},
 };

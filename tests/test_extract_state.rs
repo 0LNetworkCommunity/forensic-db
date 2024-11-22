@@ -11,6 +11,14 @@ async fn test_extract_v5_manifest() -> Result<()> {
     let s = extract_v5_snapshot(&manifest_file).await?;
     // NOTE: the parsing drops 1 blob, which is the 0x1 account, because it would not have the DiemAccount struct on it as a user address would have.
     assert!(s.len() == 17338);
+    let first = s.first().unwrap();
+
+    assert!(&first.address.to_hex_literal() == "0x407d4d486fdc4e796504135e545be77");
+    assert!(first.balance == 100135989588);
+    assert!(first.slow_wallet_locked == 140001000000);
+    assert!(first.slow_wallet_transferred == 15999000000);
+    assert!(first.sequence_num == 7);
+
     Ok(())
 }
 

@@ -1,14 +1,15 @@
 mod support;
 use anyhow::Result;
 use diem_crypto::HashValue;
-use libra_forensic_db::cypher_templates::{write_batch_tx_string, write_batch_user_create};
-use libra_forensic_db::load::try_load_one_archive;
-use libra_forensic_db::load_tx_cypher::tx_batch;
-use libra_forensic_db::scan::scan_dir_archive;
-use libra_forensic_db::schema_transaction::WarehouseTxMaster;
+
 use libra_forensic_db::{
+    cypher_templates::{write_batch_tx_string, write_batch_user_create},
     extract_transactions::extract_current_transactions,
+    load::try_load_one_archive,
+    load_tx_cypher::tx_batch,
     neo4j_init::{get_neo4j_localhost_pool, maybe_create_indexes},
+    scan::scan_dir_archive,
+    schema_transaction::WarehouseTxMaster,
 };
 use neo4rs::query;
 use support::neo4j_testcontainer::start_neo4j_container;
@@ -37,9 +38,8 @@ async fn test_tx_batch() -> anyhow::Result<()> {
     assert!(res.created_accounts == 60);
     assert!(res.modified_accounts == 228);
     assert!(res.unchanged_accounts == 0);
-    assert!(res.created_tx == txs.len() as u64); // 705
-                                                 // CHECK
-                                                 // get the sum of all transactions in db
+    assert!(res.created_tx == txs.len() as u64);
+
     let cypher_query = query(
         "MATCH ()-[r:Tx]->()
          RETURN count(r) AS total_tx_count",

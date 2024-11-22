@@ -31,7 +31,7 @@ pub async fn extract_v5_snapshot(v5_manifest_path: &Path) -> Result<Vec<Warehous
                 }
 
                 if let Some(b) = acc.get_resource::<BalanceResourceV5>().ok() {
-                    s.balance = Some(b.coin())
+                    s.balance = b.coin()
                 }
                 if let Some(sw) = acc.get_resource::<SlowWalletResourceV5>().ok() {
                     s.slow_wallet_locked = sw.unlocked;
