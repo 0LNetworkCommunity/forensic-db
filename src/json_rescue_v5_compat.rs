@@ -3,22 +3,14 @@ use anyhow::Result;
 use diem_crypto::HashValue;
 use serde::{de::Error, Deserialize, Deserializer, Serialize, Serializer};
 
-// use diem_types::transaction::TransactionArgument;
 use libra_backwards_compatibility::version_five::{
-    event_v5::EventKeyV5 as EventKey,
-    // language_storage_v5::TypeTagV5 as TypeTag,
-    legacy_address_v5::LegacyAddressV5 as AccountAddress,
-    // transaction_type_v5::AbortLocation,
+    event_v5::EventKeyV5 as EventKey, legacy_address_v5::LegacyAddressV5 as AccountAddress,
 };
-// TODO check v5 compatibility
-// use diem_types::contract_event::ContractEvent;
-// use diem_types::transaction::Script;
-// use diem_types::vm_status::KeptVMStatus;
 
 use hex::FromHex;
 /// This is the output of a JSON API request on the V5 data
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
-pub struct TransactionView {
+pub struct TransactionViewV5 {
     pub version: u64,
     pub transaction: TransactionDataView,
     pub hash: HashValue,
