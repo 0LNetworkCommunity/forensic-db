@@ -21,7 +21,10 @@ fn test_rescue_v5_parse() -> anyhow::Result<()> {
 fn test_extract_v5_json_from_file() -> anyhow::Result<()> {
     let p = fixtures::v5_json_tx_path().join("example_user_tx.json");
 
-    let r = extract_v5_json_rescue(&p)?;
+    let (tx, _) = extract_v5_json_rescue(&p)?;
+    let first = tx.first().unwrap();
+    dbg!(&tx);
 
+    assert!(first.sender.to_hex_literal() == "0xc8336044cdf1878d9738ed0a041b235e");
     Ok(())
 }

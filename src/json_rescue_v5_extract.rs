@@ -1,8 +1,9 @@
 use crate::{
-    json_rescue_v5_compat::TransactionViewV5,
+    json_rescue_v5_compat::{TransactionDataView, TransactionViewV5},
     schema_transaction::{WarehouseEvent, WarehouseTxMaster},
 };
 use anyhow::Result;
+use diem_types::account_address::AccountAddress;
 use std::path::Path;
 
 /// The canonical transaction archives for V5 were kept in a different format as in v6 and v7.
@@ -12,10 +13,27 @@ use std::path::Path;
 pub fn extract_v5_json_rescue(
     one_json_file: &Path,
 ) -> Result<(Vec<WarehouseTxMaster>, Vec<WarehouseEvent>)> {
-    dbg!(&one_json_file);
+    // dbg!(&one_json_file);
     let json = std::fs::read_to_string(one_json_file)?;
 
     let txs: Vec<TransactionViewV5> = serde_json::from_str(&json)?;
-    dbg!(&txs);
-    todo!()
+    // dbg!(&txs);
+
+    let mut tx_vec = vec![];
+    let event_vec = vec![];
+
+    for t in txs {
+        let mut wtxs = WarehouseTxMaster::default();
+        match t.transaction {
+            TransactionDataView::UserTransaction {
+                sender, ..
+            } => {
+                wtxs.sender = AccountAddress::from_hex_literal(&sender.to_hex_literal())?;
+                tx_vec.push(wtxs);
+            }
+            _ => {}
+        }
+    }
+
+    Ok((tx_vec, event_vec))
 }
