@@ -37,9 +37,9 @@ fn test_scan_dir_for_compressed_v7_manifests() -> Result<()> {
     assert!(archives.0.iter().len() == 0);
 
     // This time the scan should find readable files
-    let unzipped_dir = make_temp_unzipped(&start_here, true)?;
+    let (_, unzipped_dir) = make_temp_unzipped(&start_here, false)?;
 
-    let archives = scan_dir_archive(&unzipped_dir, None)?;
+    let archives = scan_dir_archive(unzipped_dir.path(), None)?;
     assert!(archives.0.iter().len() > 0);
 
     Ok(())

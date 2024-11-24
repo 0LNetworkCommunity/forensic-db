@@ -6,6 +6,7 @@ pub mod extract_snapshot;
 pub mod extract_transactions;
 pub mod json_rescue_v5_compat;
 pub mod json_rescue_v5_extract;
+pub mod json_rescue_v5_load;
 pub mod load;
 pub mod load_account_state;
 pub mod load_exchange_orders;
