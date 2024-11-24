@@ -20,6 +20,7 @@ pub struct TransactionViewV5 {
     pub gas_used: u64,
 }
 
+
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(tag = "type")]
 #[serde(rename_all = "snake_case")]

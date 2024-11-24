@@ -16,7 +16,7 @@ pub async fn e2e_decompress_and_extract(tgz_file: &Path, pool: &Graph) -> Result
     let mut transactions = 0u64;
     for j in json_vec {
         if let Ok((r, _e)) = extract_v5_json_rescue(&j) {
-            // tx_batch(&r, pool, 250, j.to_str().unwrap()).await?;
+            tx_batch(&r, pool, 250, j.to_str().unwrap()).await?;
             transactions += r.len() as u64;
         }
     }
