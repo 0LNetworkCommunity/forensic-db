@@ -18,6 +18,7 @@ pub mod schema_account_state;
 pub mod schema_exchange_orders;
 pub mod schema_transaction;
 pub mod unzip_temp;
+pub mod v5_rpc_to_raw;
 pub mod warehouse_cli;
 
 use std::sync::Once;

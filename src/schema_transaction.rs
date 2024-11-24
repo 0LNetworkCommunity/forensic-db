@@ -124,6 +124,7 @@ impl WarehouseTxMaster {
             self.function,
             self.sender.to_hex_literal(),
             tx_args,
+            // TODO: should be from relation_label.get_recipient
             self.recipient.unwrap_or(self.sender).to_hex_literal(),
         )
     }

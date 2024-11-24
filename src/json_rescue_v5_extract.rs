@@ -1,6 +1,6 @@
 use crate::{
-    json_rescue_v5_compat::{TransactionDataView, TransactionViewV5},
-    schema_transaction::{WarehouseEvent, WarehouseTxMaster},
+    json_rescue_v5_compat::{ScriptView, TransactionDataView, TransactionViewV5},
+    schema_transaction::{RelationLabel, WarehouseEvent, WarehouseTxMaster},
     unzip_temp::decompress_tar_archive,
 };
 use anyhow::{anyhow, Context, Result};
@@ -24,11 +24,24 @@ pub fn extract_v5_json_rescue(
     let event_vec = vec![];
 
     for t in txs {
-        // dbg!(&t.hash);
+        // if let Some(UserTransaction {}) == &t {
+        //   dbg!(&t);
+        // }
         let mut wtxs = WarehouseTxMaster::default();
-        match t.transaction {
-            TransactionDataView::UserTransaction { sender, .. } => {
+        match &t.transaction {
+            TransactionDataView::UserTransaction { sender, script, .. } => {
+                // dbg!(&t);
                 wtxs.sender = AccountAddress::from_hex_literal(&sender.to_hex_literal())?;
+                wtxs.tx_hash = t.hash;
+
+                wtxs.function = make_function_name(script);
+
+                wtxs.relation_label = guess_relation(&wtxs.function);
+                // wtxs.events
+                // wtxs.block_timestamp
+                // wtxs.entry_function
+                // wtxs.
+
                 tx_vec.push(wtxs);
             }
             TransactionDataView::BlockMetadata { timestamp_usecs: _ } => {
@@ -70,4 +83,31 @@ pub fn list_all_json_files(search_dir: &Path) -> Result<Vec<PathBuf>> {
 
     let vec_pathbuf = glob::glob(&pattern)?.map(|el| el.unwrap()).collect();
     Ok(vec_pathbuf)
+}
+
+// TODO: gross borrows, lazy.
+fn make_function_name(script: &ScriptView) -> String {
+    let module = script.module_name.as_ref();
+
+    let function = script.function_name.as_ref();
+
+    format!(
+        "0x::{}::{}",
+        module.unwrap_or(&"none".to_string()),
+        function.unwrap_or(&"none".to_string())
+    )
+}
+
+fn guess_relation(script_name: &str) -> RelationLabel {
+    if script_name.contains("minerstate_commit") {
+        RelationLabel::Miner
+    } else if script_name.contains("create_user_by_coin_tx") {
+        // TODO: get the address
+        RelationLabel::Onboarding(AccountAddress::ZERO)
+    } else if script_name.contains("set_wallet_type") {
+        RelationLabel::Configuration
+    } else {
+        dbg!(&script_name);
+        RelationLabel::Tx
+    }
 }
