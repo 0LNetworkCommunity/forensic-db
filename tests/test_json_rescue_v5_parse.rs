@@ -1,9 +1,7 @@
 mod support;
 
-use libra_forensic_db::{
-    json_rescue_v5_compat::TransactionViewV5,
-    json_rescue_v5_extract::{decompress_to_temppath, extract_v5_json_rescue},
-};
+use libra_backwards_compatibility::version_five::transaction_view_v5::TransactionViewV5;
+use libra_forensic_db::json_rescue_v5_extract::{decompress_to_temppath, extract_v5_json_rescue};
 use support::fixtures;
 
 #[test]
@@ -15,6 +13,10 @@ fn test_rescue_v5_parse() -> anyhow::Result<()> {
 
     let first = txs.first().unwrap();
     assert!(first.gas_used == 1429);
+
+    // if let TransactionDataView::UserTransaction { script, .. }  = &first.transaction {
+    //   dbg!(&script);
+    // }
 
     Ok(())
 }

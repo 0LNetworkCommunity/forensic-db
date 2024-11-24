@@ -1,13 +1,17 @@
 use crate::{
-    json_rescue_v5_compat::{ScriptView, TransactionDataView, TransactionViewV5},
     schema_transaction::{RelationLabel, WarehouseEvent, WarehouseTxMaster},
     unzip_temp::decompress_tar_archive,
 };
+use libra_backwards_compatibility::version_five::transaction_view_v5::{
+    ScriptView, TransactionDataView, TransactionViewV5,
+};
+
 use anyhow::{anyhow, Context, Result};
+use diem_crypto::HashValue;
 use diem_temppath::TempPath;
 use diem_types::account_address::AccountAddress;
 use std::path::{Path, PathBuf};
-
+use std::str::FromStr;
 /// The canonical transaction archives for V5 were kept in a different format as in v6 and v7.
 /// As of Nov 2024, there's a project to recover the V5 transaction archives to be in the same bytecode flat file format as v6 and v7.
 /// Until then, we must parse the json files.
@@ -32,7 +36,7 @@ pub fn extract_v5_json_rescue(
             TransactionDataView::UserTransaction { sender, script, .. } => {
                 // dbg!(&t);
                 wtxs.sender = AccountAddress::from_hex_literal(&sender.to_hex_literal())?;
-                wtxs.tx_hash = t.hash;
+                wtxs.tx_hash = HashValue::from_str(&t.hash.to_hex_literal())?;
 
                 wtxs.function = make_function_name(script);
 
