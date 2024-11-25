@@ -1,17 +1,21 @@
 use crate::{
-    schema_transaction::{RelationLabel, WarehouseEvent, WarehouseTxMaster},
+    schema_transaction::{EntryFunctionArgs, RelationLabel, WarehouseEvent, WarehouseTxMaster},
     unzip_temp::decompress_tar_archive,
 };
-use libra_backwards_compatibility::version_five::transaction_view_v5::{
-    ScriptView, TransactionDataView, TransactionViewV5,
+use libra_backwards_compatibility::{
+    sdk::v5_0_0_genesis_transaction_script_builder::ScriptFunctionCall as ScriptFunctionCallGenesis,
+    sdk::v5_2_0_transaction_script_builder::ScriptFunctionCall as ScriptFunctionCallV520,
+    version_five::{
+        transaction_type_v5::{TransactionPayload, TransactionV5},
+        transaction_view_v5::{ScriptView, TransactionDataView, TransactionViewV5},
+    },
 };
 
 use anyhow::{anyhow, Context, Result};
-use diem_crypto::HashValue;
 use diem_temppath::TempPath;
 use diem_types::account_address::AccountAddress;
+use log::info;
 use std::path::{Path, PathBuf};
-use std::str::FromStr;
 /// The canonical transaction archives for V5 were kept in a different format as in v6 and v7.
 /// As of Nov 2024, there's a project to recover the V5 transaction archives to be in the same bytecode flat file format as v6 and v7.
 /// Until then, we must parse the json files.
@@ -28,23 +32,22 @@ pub fn extract_v5_json_rescue(
     let event_vec = vec![];
 
     for t in txs {
-        // if let Some(UserTransaction {}) == &t {
-        //   dbg!(&t);
-        // }
         let mut wtxs = WarehouseTxMaster::default();
         match &t.transaction {
             TransactionDataView::UserTransaction { sender, script, .. } => {
                 // dbg!(&t);
                 wtxs.sender = AccountAddress::from_hex_literal(&sender.to_hex_literal())?;
-                wtxs.tx_hash = HashValue::from_str(&t.hash.to_hex_literal())?;
+
+                // wtxs.tx_hash = HashValue::from_str(&t.hash.to_hex_literal())?;
 
                 wtxs.function = make_function_name(script);
+                info!("function: {}", &wtxs.function);
 
                 wtxs.relation_label = guess_relation(&wtxs.function);
+
                 // wtxs.events
                 // wtxs.block_timestamp
-                // wtxs.entry_function
-                // wtxs.
+                wtxs.entry_function = decode_transaction_args(&t.bytes);
 
                 tx_vec.push(wtxs);
             }
@@ -63,6 +66,27 @@ pub fn extract_v5_json_rescue(
     Ok((tx_vec, event_vec))
 }
 
+pub fn decode_transaction_args(tx_bytes: &[u8]) -> Option<EntryFunctionArgs> {
+    // test we can bcs decode to the transaction object
+    let t: TransactionV5 = bcs::from_bytes(tx_bytes).unwrap();
+
+    if let TransactionV5::UserTransaction(u) = &t {
+        match &u.raw_txn.payload {
+            TransactionPayload::ScriptFunction(_) => {
+                info!("ScriptFunction");
+
+                if let Some(sf) = ScriptFunctionCallGenesis::decode(&u.raw_txn.payload) {
+                    dbg!("genesis", &sf);
+                    Some(EntryFunctionArgs::V5(sf))
+                } else if let Some(sf) = ScriptFunctionCallV520::decode(&u.raw_txn.payload) {
+                    dbg!("520", &sf);
+                    Some(EntryFunctionArgs::V520(sf))
+                }
+            }
+            _ => None,
+        }
+    }
+}
 /// from a tgz file unwrap to temp path
 /// NOTE: we return the Temppath object for the directory
 /// for the enclosing function to handle

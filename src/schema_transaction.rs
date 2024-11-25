@@ -3,7 +3,11 @@ use crate::cypher_templates::to_cypher_object;
 use chrono::{DateTime, Utc};
 use diem_crypto::HashValue;
 use diem_types::account_config::{DepositEvent, WithdrawEvent};
-use libra_backwards_compatibility::sdk::v7_libra_framework_sdk_builder::EntryFunctionCall;
+use libra_backwards_compatibility::sdk::{
+    v5_0_0_genesis_transaction_script_builder::ScriptFunctionCall as ScriptFunctionCallGenesis,
+    v5_2_0_transaction_script_builder::ScriptFunctionCall as ScriptFunctionCallV520,
+    v7_libra_framework_sdk_builder::EntryFunctionCall,
+};
 use libra_types::{exports::AccountAddress, move_resource::coin_register_event::CoinRegisterEvent};
 use serde::{Deserialize, Serialize};
 
@@ -65,7 +69,8 @@ pub enum EntryFunctionArgs {
     V7(EntryFunctionCall),
     // TODO:
     // V6(V6EntryFunctionCall),
-    // V5(V5EntryFunctionCall),
+    V5(ScriptFunctionCallGenesis),
+    V520(ScriptFunctionCallV520),
 }
 
 #[derive(Debug, Deserialize, Serialize)]
