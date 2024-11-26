@@ -16,11 +16,15 @@ MERGE (from)-[rel:Tx {{tx_hash: tx.tx_hash}}]->(to)
 ON CREATE SET rel.created_at = timestamp(), rel.modified_at = null
 ON MATCH SET rel.modified_at = timestamp()
 SET
-    rel += tx.args,
     rel.block_datetime = tx.block_datetime,
     rel.block_timestamp = tx.block_timestamp,
     rel.relation = tx.relation,
     rel.function = tx.function
+
+// Conditionally add `tx.args` if it exists
+FOREACH (_ IN CASE WHEN tx.args IS NOT NULL THEN [1] ELSE [] END |
+    SET rel += tx.args
+)
 
 WITH rel
 

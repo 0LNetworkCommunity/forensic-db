@@ -35,7 +35,13 @@ pub async fn decompress_and_extract(tgz_file: &Path, pool: &Graph) -> Result<u64
 
         if queue.len() >= LOAD_QUEUE_SIZE {
             let drain: Vec<WarehouseTxMaster> = std::mem::take(&mut queue);
-            let res = tx_batch(&drain, pool, QUERY_BATCH_SIZE, j.to_str().unwrap()).await?;
+            let res = tx_batch(
+                &drain,
+                pool,
+                QUERY_BATCH_SIZE,
+                j.file_name().unwrap().to_str().unwrap(),
+            )
+            .await?;
             created_count += res.created_tx as u64;
         }
     }
