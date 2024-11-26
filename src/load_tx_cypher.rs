@@ -171,9 +171,9 @@ ON MATCH SET rel.modified_at = timestamp()
             recipient = t
                 .relation_label
                 .get_recipient()
-                .unwrap_or(t.sender.clone())
+                .unwrap_or(t.sender)
                 .to_hex_literal(),
-            tx_hash = t.tx_hash.to_string(),
+            tx_hash = t.tx_hash,
             relation = t.relation_label.to_cypher_label(),
             function = t.function,
             block_datetime = t.block_datetime.to_rfc3339(),
