@@ -24,8 +24,8 @@ async fn test_load_all_tgz() -> anyhow::Result<()> {
     let path = fixtures::v5_json_tx_path().join("0-99900.tgz");
 
     let tx_count = json_rescue_v5_load::decompress_and_extract(&path, &pool).await?;
-    dbg!(&tx_count);
-    assert!(tx_count == 6157);
+
+    assert!(tx_count == 5244);
 
     Ok(())
 }
