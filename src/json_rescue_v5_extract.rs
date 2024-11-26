@@ -39,8 +39,7 @@ pub fn extract_v5_json_rescue(
         let mut wtxs = WarehouseTxMaster::default();
         match &t.transaction {
             TransactionDataView::UserTransaction { sender, script, .. } => {
-
-                wtxs.sender = cast_legacy_account(&sender)?;
+                wtxs.sender = cast_legacy_account(sender)?;
 
                 // must cast from V5 Hashvalue buffer layout
                 wtxs.tx_hash = HashValue::from_slice(&t.hash.to_vec())?;
@@ -84,24 +83,17 @@ pub fn decode_transaction_args(wtx: &mut WarehouseTxMaster, tx_bytes: &[u8]) -> 
                 wtx.entry_function = Some(EntryFunctionArgs::V5(sf.to_owned()));
 
                 match sf {
-                    ScriptFunctionCallGenesis::BalanceTransfer {
-                        destination,
-                        ..
-                    } => {
+                    ScriptFunctionCallGenesis::BalanceTransfer { destination, .. } => {
                         wtx.relation_label =
-                            RelationLabel::Transfer(cast_legacy_account(&destination)?);
+                            RelationLabel::Transfer(cast_legacy_account(destination)?);
                     }
-                    ScriptFunctionCallGenesis::CreateAccUser {
-                        ..
-                    } => {
+                    ScriptFunctionCallGenesis::CreateAccUser { .. } => {
                         // onboards self
-                        wtx.relation_label = RelationLabel::Onboarding(wtx.sender.clone());
+                        wtx.relation_label = RelationLabel::Onboarding(wtx.sender);
                     }
-                    ScriptFunctionCallGenesis::CreateAccVal {
-                        ..
-                    } => {
+                    ScriptFunctionCallGenesis::CreateAccVal { .. } => {
                         // onboards self
-                        wtx.relation_label = RelationLabel::Onboarding(wtx.sender.clone());
+                        wtx.relation_label = RelationLabel::Onboarding(wtx.sender);
                     }
 
                     ScriptFunctionCallGenesis::CreateUserByCoinTx { account, .. } => {
@@ -128,9 +120,7 @@ pub fn decode_transaction_args(wtx: &mut WarehouseTxMaster, tx_bytes: &[u8]) -> 
                     ScriptFunctionCallGenesis::MinerstateCommit { .. } => {
                         wtx.relation_label = RelationLabel::Miner;
                     }
-                    ScriptFunctionCallGenesis::MinerstateCommitByOperator {
-                        ..
-                    } => {
+                    ScriptFunctionCallGenesis::MinerstateCommitByOperator { .. } => {
                         wtx.relation_label = RelationLabel::Miner;
                     }
                     _ => {
@@ -145,10 +135,10 @@ pub fn decode_transaction_args(wtx: &mut WarehouseTxMaster, tx_bytes: &[u8]) -> 
 
                 match sf {
                     ScriptFunctionCallV520::CreateAccUser { .. } => {
-                        wtx.relation_label = RelationLabel::Onboarding(wtx.sender.clone());
+                        wtx.relation_label = RelationLabel::Onboarding(wtx.sender);
                     }
                     ScriptFunctionCallV520::CreateAccVal { .. } => {
-                        wtx.relation_label = RelationLabel::Onboarding(wtx.sender.clone());
+                        wtx.relation_label = RelationLabel::Onboarding(wtx.sender);
                     }
 
                     ScriptFunctionCallV520::CreateValidatorAccount {
@@ -170,9 +160,7 @@ pub fn decode_transaction_args(wtx: &mut WarehouseTxMaster, tx_bytes: &[u8]) -> 
                     ScriptFunctionCallV520::MinerstateCommit { .. } => {
                         wtx.relation_label = RelationLabel::Miner;
                     }
-                    ScriptFunctionCallV520::MinerstateCommitByOperator {
-                        ..
-                    } => {
+                    ScriptFunctionCallV520::MinerstateCommitByOperator { .. } => {
                         wtx.relation_label = RelationLabel::Miner;
                     }
                     _ => {
@@ -211,6 +199,19 @@ pub fn list_all_json_files(search_dir: &Path) -> Result<Vec<PathBuf>> {
     Ok(vec_pathbuf)
 }
 
+/// gets all json files decompressed from tgz
+pub fn list_all_tgz_archives(search_dir: &Path) -> Result<Vec<PathBuf>> {
+    let path = search_dir.canonicalize()?;
+
+    let pattern = format!(
+        "{}/**/*.tgz",
+        path.to_str().context("cannot parse starting dir")?
+    );
+
+    let vec_pathbuf = glob::glob(&pattern)?.map(|el| el.unwrap()).collect();
+    Ok(vec_pathbuf)
+}
+
 // TODO: gross borrows, lazy.
 fn make_function_name(script: &ScriptView) -> String {
     let module = script.module_name.as_ref();
@@ -223,7 +224,6 @@ fn make_function_name(script: &ScriptView) -> String {
         function.unwrap_or(&"none".to_string())
     )
 }
-
 
 fn cast_legacy_account(legacy: &LegacyAddressV5) -> Result<AccountAddress> {
     Ok(AccountAddress::from_hex_literal(&legacy.to_hex_literal())?)
