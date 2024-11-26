@@ -87,6 +87,11 @@ pub enum Sub {
         /// file with owner map
         owner_json: PathBuf,
     },
+    VersionFiveTx {
+        #[clap(long)]
+        /// starting path for v5 .tgz files
+        archive_dir: PathBuf,
+    }
 }
 
 impl WarehouseCli {
@@ -164,6 +169,9 @@ impl WarehouseCli {
                 let owners_merged = enrich_whitepages::impl_batch_tx_insert(&pool, &wp).await?;
 
                 println!("SUCCESS: {} owner accounts linked", owners_merged);
+            }
+            VersionFiveTx { archive_dir } => {
+
             }
         };
         Ok(())

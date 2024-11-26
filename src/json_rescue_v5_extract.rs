@@ -2,10 +2,14 @@ use crate::{
     schema_transaction::{EntryFunctionArgs, RelationLabel, WarehouseEvent, WarehouseTxMaster},
     unzip_temp::decompress_tar_archive,
 };
+use diem_crypto::HashValue;
 use libra_backwards_compatibility::{
-    sdk::v5_0_0_genesis_transaction_script_builder::ScriptFunctionCall as ScriptFunctionCallGenesis,
-    sdk::v5_2_0_transaction_script_builder::ScriptFunctionCall as ScriptFunctionCallV520,
+    sdk::{
+        v5_0_0_genesis_transaction_script_builder::ScriptFunctionCall as ScriptFunctionCallGenesis,
+        v5_2_0_transaction_script_builder::ScriptFunctionCall as ScriptFunctionCallV520,
+    },
     version_five::{
+        legacy_address_v5::LegacyAddressV5,
         transaction_type_v5::{TransactionPayload, TransactionV5},
         transaction_view_v5::{ScriptView, TransactionDataView, TransactionViewV5},
     },
@@ -35,19 +39,20 @@ pub fn extract_v5_json_rescue(
         let mut wtxs = WarehouseTxMaster::default();
         match &t.transaction {
             TransactionDataView::UserTransaction { sender, script, .. } => {
-                // dbg!(&t);
-                wtxs.sender = AccountAddress::from_hex_literal(&sender.to_hex_literal())?;
 
-                // wtxs.tx_hash = HashValue::from_str(&t.hash.to_hex_literal())?;
+                wtxs.sender = cast_legacy_account(&sender)?;
+
+                // must cast from V5 Hashvalue buffer layout
+                wtxs.tx_hash = HashValue::from_slice(&t.hash.to_vec())?;
 
                 wtxs.function = make_function_name(script);
                 info!("function: {}", &wtxs.function);
 
-                wtxs.relation_label = guess_relation(&wtxs.function);
+                decode_transaction_args(&mut wtxs, &t.bytes)?;
 
+                // TODO:
                 // wtxs.events
                 // wtxs.block_timestamp
-                wtxs.entry_function = decode_transaction_args(&t.bytes);
 
                 tx_vec.push(wtxs);
             }
@@ -66,27 +71,120 @@ pub fn extract_v5_json_rescue(
     Ok((tx_vec, event_vec))
 }
 
-pub fn decode_transaction_args(tx_bytes: &[u8]) -> Option<EntryFunctionArgs> {
+pub fn decode_transaction_args(wtx: &mut WarehouseTxMaster, tx_bytes: &[u8]) -> Result<()> {
     // test we can bcs decode to the transaction object
     let t: TransactionV5 = bcs::from_bytes(tx_bytes).unwrap();
 
     if let TransactionV5::UserTransaction(u) = &t {
-        match &u.raw_txn.payload {
-            TransactionPayload::ScriptFunction(_) => {
-                info!("ScriptFunction");
+        if let TransactionPayload::ScriptFunction(_) = &u.raw_txn.payload {
+            info!("ScriptFunction");
 
-                if let Some(sf) = ScriptFunctionCallGenesis::decode(&u.raw_txn.payload) {
-                    dbg!("genesis", &sf);
-                    Some(EntryFunctionArgs::V5(sf))
-                } else if let Some(sf) = ScriptFunctionCallV520::decode(&u.raw_txn.payload) {
-                    dbg!("520", &sf);
-                    Some(EntryFunctionArgs::V520(sf))
+            if let Some(sf) = &ScriptFunctionCallGenesis::decode(&u.raw_txn.payload) {
+                dbg!("genesis", &sf);
+                wtx.entry_function = Some(EntryFunctionArgs::V5(sf.to_owned()));
+
+                match sf {
+                    ScriptFunctionCallGenesis::BalanceTransfer {
+                        destination,
+                        ..
+                    } => {
+                        wtx.relation_label =
+                            RelationLabel::Transfer(cast_legacy_account(&destination)?);
+                    }
+                    ScriptFunctionCallGenesis::CreateAccUser {
+                        ..
+                    } => {
+                        // onboards self
+                        wtx.relation_label = RelationLabel::Onboarding(wtx.sender.clone());
+                    }
+                    ScriptFunctionCallGenesis::CreateAccVal {
+                        ..
+                    } => {
+                        // onboards self
+                        wtx.relation_label = RelationLabel::Onboarding(wtx.sender.clone());
+                    }
+
+                    ScriptFunctionCallGenesis::CreateUserByCoinTx { account, .. } => {
+                        wtx.relation_label =
+                            RelationLabel::Onboarding(cast_legacy_account(account)?);
+                    }
+                    ScriptFunctionCallGenesis::CreateValidatorAccount {
+                        sliding_nonce: _,
+                        new_account_address,
+                        ..
+                    } => {
+                        wtx.relation_label =
+                            RelationLabel::Onboarding(cast_legacy_account(new_account_address)?);
+                    }
+                    ScriptFunctionCallGenesis::CreateValidatorOperatorAccount {
+                        sliding_nonce: _,
+                        new_account_address,
+                        ..
+                    } => {
+                        wtx.relation_label =
+                            RelationLabel::Onboarding(cast_legacy_account(new_account_address)?);
+                    }
+
+                    ScriptFunctionCallGenesis::MinerstateCommit { .. } => {
+                        wtx.relation_label = RelationLabel::Miner;
+                    }
+                    ScriptFunctionCallGenesis::MinerstateCommitByOperator {
+                        ..
+                    } => {
+                        wtx.relation_label = RelationLabel::Miner;
+                    }
+                    _ => {
+                        wtx.relation_label = RelationLabel::Configuration;
+                    }
                 }
             }
-            _ => None,
+
+            if let Some(sf) = &ScriptFunctionCallV520::decode(&u.raw_txn.payload) {
+                dbg!("520", &sf);
+                wtx.entry_function = Some(EntryFunctionArgs::V520(sf.to_owned()));
+
+                match sf {
+                    ScriptFunctionCallV520::CreateAccUser { .. } => {
+                        wtx.relation_label = RelationLabel::Onboarding(wtx.sender.clone());
+                    }
+                    ScriptFunctionCallV520::CreateAccVal { .. } => {
+                        wtx.relation_label = RelationLabel::Onboarding(wtx.sender.clone());
+                    }
+
+                    ScriptFunctionCallV520::CreateValidatorAccount {
+                        sliding_nonce: _,
+                        new_account_address,
+                        ..
+                    } => {
+                        wtx.relation_label =
+                            RelationLabel::Onboarding(cast_legacy_account(new_account_address)?);
+                    }
+                    ScriptFunctionCallV520::CreateValidatorOperatorAccount {
+                        sliding_nonce: _,
+                        new_account_address,
+                        ..
+                    } => {
+                        wtx.relation_label =
+                            RelationLabel::Onboarding(cast_legacy_account(new_account_address)?);
+                    }
+                    ScriptFunctionCallV520::MinerstateCommit { .. } => {
+                        wtx.relation_label = RelationLabel::Miner;
+                    }
+                    ScriptFunctionCallV520::MinerstateCommitByOperator {
+                        ..
+                    } => {
+                        wtx.relation_label = RelationLabel::Miner;
+                    }
+                    _ => {
+                        wtx.relation_label = RelationLabel::Configuration;
+                    }
+                }
+            }
         }
     }
+    Ok(())
 }
+
 /// from a tgz file unwrap to temp path
 /// NOTE: we return the Temppath object for the directory
 /// for the enclosing function to handle
@@ -126,16 +224,7 @@ fn make_function_name(script: &ScriptView) -> String {
     )
 }
 
-fn guess_relation(script_name: &str) -> RelationLabel {
-    if script_name.contains("minerstate_commit") {
-        RelationLabel::Miner
-    } else if script_name.contains("create_user_by_coin_tx") {
-        // TODO: get the address
-        RelationLabel::Onboarding(AccountAddress::ZERO)
-    } else if script_name.contains("set_wallet_type") {
-        RelationLabel::Configuration
-    } else {
-        dbg!(&script_name);
-        RelationLabel::Tx
-    }
+
+fn cast_legacy_account(legacy: &LegacyAddressV5) -> Result<AccountAddress> {
+    Ok(AccountAddress::from_hex_literal(&legacy.to_hex_literal())?)
 }

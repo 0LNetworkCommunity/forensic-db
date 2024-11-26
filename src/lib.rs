@@ -22,11 +22,13 @@ pub mod warehouse_cli;
 
 use std::sync::Once;
 
+use env_logger::Env;
+
 static LOGGER: Once = Once::new();
 
 /// Setup function that is only run once, even if called multiple times.
 pub fn log_setup() {
     LOGGER.call_once(|| {
-        env_logger::init();
+        env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
     });
 }

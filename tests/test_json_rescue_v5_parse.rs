@@ -29,12 +29,7 @@ fn test_rescue_v5_genesis_create_account() -> anyhow::Result<()> {
             assert!(script_function.function().as_str() == "create_user_by_coin_tx");
 
             let sf = ScriptFunctionCall::decode(&u.raw_txn.payload).unwrap();
-            if let ScriptFunctionCall::CreateUserByCoinTx {
-                account,
-                authkey_prefix,
-                unscaled_value,
-            } = sf
-            {
+            if let ScriptFunctionCall::CreateUserByCoinTx { account, .. } = sf {
                 assert!(&account.to_string().to_uppercase() == "F605FE7F787551EEA808EE9ACDB98897");
             }
         }
@@ -57,16 +52,11 @@ fn test_rescue_v5_parse_miner_tx() -> anyhow::Result<()> {
     let t: TransactionV5 = bcs::from_bytes(&first.bytes).unwrap();
 
     if let TransactionV5::UserTransaction(u) = &t {
-        match &u.raw_txn.payload {
-            TransactionPayload::WriteSet(write_set_payload) => println!("writeset"),
-            TransactionPayload::Script(script) => println!("script"),
-            TransactionPayload::ModuleBundle(module_bundle) => println!("modulebundle"),
-            TransactionPayload::ScriptFunction(script_function) => {
-                println!("ScriptFunction");
-                dbg!(&u.raw_txn.payload);
-                let sf = ScriptFunctionCall::decode(&u.raw_txn.payload);
-                dbg!(&sf);
-            }
+        if let TransactionPayload::ScriptFunction(_) = &u.raw_txn.payload {
+            println!("ScriptFunction");
+            dbg!(&u.raw_txn.payload);
+            let sf = ScriptFunctionCall::decode(&u.raw_txn.payload);
+            dbg!(&sf);
         }
     }
 
@@ -91,7 +81,9 @@ fn test_json_full_file() -> anyhow::Result<()> {
     let p = fixtures::v5_json_tx_path().join("0-999.json");
 
     let (tx, _) = extract_v5_json_rescue(&p)?;
-    dbg!(&tx.len());
+
+    let first = tx.first().unwrap();
+    dbg!(&first.entry_function);
 
     Ok(())
 }
