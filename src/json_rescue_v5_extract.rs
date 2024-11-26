@@ -18,7 +18,7 @@ use libra_backwards_compatibility::{
 use anyhow::{anyhow, Context, Result};
 use diem_temppath::TempPath;
 use diem_types::account_address::AccountAddress;
-use log::info;
+use log::trace;
 use std::path::{Path, PathBuf};
 /// The canonical transaction archives for V5 were kept in a different format as in v6 and v7.
 /// As of Nov 2024, there's a project to recover the V5 transaction archives to be in the same bytecode flat file format as v6 and v7.
@@ -45,7 +45,7 @@ pub fn extract_v5_json_rescue(
                 wtxs.tx_hash = HashValue::from_slice(&t.hash.to_vec())?;
 
                 wtxs.function = make_function_name(script);
-                info!("function: {}", &wtxs.function);
+                trace!("function: {}", &wtxs.function);
 
                 decode_transaction_args(&mut wtxs, &t.bytes)?;
 
@@ -57,7 +57,6 @@ pub fn extract_v5_json_rescue(
             }
             TransactionDataView::BlockMetadata { timestamp_usecs: _ } => {
                 // TODO get epoch events
-                // todo!();
                 //  t.events.iter().any(|e|{
                 // if let epoch: NewEpoch = e.data {
                 //   }
@@ -76,16 +75,14 @@ pub fn decode_transaction_args(wtx: &mut WarehouseTxMaster, tx_bytes: &[u8]) -> 
 
     if let TransactionV5::UserTransaction(u) = &t {
         if let TransactionPayload::ScriptFunction(_) = &u.raw_txn.payload {
-            info!("ScriptFunction");
-
             if let Some(sf) = &ScriptFunctionCallGenesis::decode(&u.raw_txn.payload) {
-                dbg!("genesis", &sf);
-                wtx.entry_function = Some(EntryFunctionArgs::V5(sf.to_owned()));
-
+                // TODO: some script functions have very large payloads which clog the e.g. Miner. So those are only added for the catch-all txs which don't fall into categories we are interested in.
                 match sf {
                     ScriptFunctionCallGenesis::BalanceTransfer { destination, .. } => {
                         wtx.relation_label =
                             RelationLabel::Transfer(cast_legacy_account(destination)?);
+
+                        wtx.entry_function = Some(EntryFunctionArgs::V5(sf.to_owned()));
                     }
                     ScriptFunctionCallGenesis::CreateAccUser { .. } => {
                         // onboards self
@@ -125,14 +122,13 @@ pub fn decode_transaction_args(wtx: &mut WarehouseTxMaster, tx_bytes: &[u8]) -> 
                     }
                     _ => {
                         wtx.relation_label = RelationLabel::Configuration;
+
+                        wtx.entry_function = Some(EntryFunctionArgs::V5(sf.to_owned()));
                     }
                 }
             }
 
             if let Some(sf) = &ScriptFunctionCallV520::decode(&u.raw_txn.payload) {
-                dbg!("520", &sf);
-                wtx.entry_function = Some(EntryFunctionArgs::V520(sf.to_owned()));
-
                 match sf {
                     ScriptFunctionCallV520::CreateAccUser { .. } => {
                         wtx.relation_label = RelationLabel::Onboarding(wtx.sender);
@@ -165,6 +161,7 @@ pub fn decode_transaction_args(wtx: &mut WarehouseTxMaster, tx_bytes: &[u8]) -> 
                     }
                     _ => {
                         wtx.relation_label = RelationLabel::Configuration;
+                        wtx.entry_function = Some(EntryFunctionArgs::V520(sf.to_owned()));
                     }
                 }
             }

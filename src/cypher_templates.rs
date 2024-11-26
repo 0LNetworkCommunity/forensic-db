@@ -106,14 +106,16 @@ pub fn to_cypher_object<T: Serialize>(object: &T, prefix: Option<&str>) -> Resul
                             Value::Object(_) => {
                                 to_cypher_object(elem, None).unwrap_or("error".to_owned())
                             } // Recurse for nested objects in arrays
-                            _ => panic!("Unsupported type in array for Cypher serialization"),
+                            _ => "Unsupported type in array for Cypher serialization".to_string(),
                         })
                         .collect();
                     format!("[{}]", elements.join(", "))
                 }
                 Value::Object(_) => {
                     if let Some(p) = prefix {
-                        key = format!("{}.{}", p, key);
+                        // TODO: the nesting of objects would need a path.
+                        // but dot notation "." for separators will break cypher.
+                        key = format!("{}_{}", p, key);
                     }
                     to_cypher_object(&value, Some(&key)).unwrap_or("error".to_owned())
                 } // Recurse for nested objects

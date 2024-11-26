@@ -21,9 +21,31 @@ async fn test_load_all_tgz() -> anyhow::Result<()> {
 
     let path = fixtures::v5_json_tx_path().join("0-99900.tgz");
 
-    let tx_count = json_rescue_v5_load::e2e_decompress_and_extract(&path, &pool).await?;
+    let tx_count = json_rescue_v5_load::decompress_and_extract(&path, &pool).await?;
     dbg!(&tx_count);
     assert!(tx_count == 6157);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_load_entrypoint() -> anyhow::Result<()> {
+    libra_forensic_db::log_setup();
+
+    let c = start_neo4j_container();
+    let port = c.get_host_port_ipv4(7687);
+    let pool = get_neo4j_localhost_pool(port)
+        .await
+        .expect("could not get neo4j connection pool");
+    maybe_create_indexes(&pool)
+        .await
+        .expect("could start index");
+
+    let path = fixtures::v5_json_tx_path();
+
+    let tx_count = json_rescue_v5_load::rip(&path, &pool).await?;
+    // dbg!(&tx_count);
+    assert!(tx_count == 5244);
 
     Ok(())
 }

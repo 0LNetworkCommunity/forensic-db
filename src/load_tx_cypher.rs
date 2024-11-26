@@ -1,7 +1,6 @@
 use anyhow::{Context, Result};
-use log::{error, info, warn};
+use log::{error, info};
 use neo4rs::{query, Graph};
-use std::{thread, time::Duration};
 
 use crate::{
     batch_tx_type::BatchTxReturn,
@@ -48,17 +47,18 @@ pub async fn tx_batch(
 
         match impl_batch_tx_insert(pool, c).await {
             Ok(batch) => {
-                // dbg!(&batch);
                 all_results.increment(&batch);
-                // dbg!(&all_results);
                 queue::update_task(pool, archive_id, true, i).await?;
                 info!("...success");
             }
             Err(e) => {
-                let secs = 10;
-                error!("skipping batch, could not insert: {:?}", e);
-                warn!("waiting {} secs before retrying connection", secs);
-                thread::sleep(Duration::from_secs(secs));
+                error!("could not insert batch: {:?}", e);
+                ////////
+                // TODO: do we need to handle connection errors?
+                // let secs = 10;
+                // warn!("waiting {} secs before retrying connection", secs);
+                // thread::sleep(Duration::from_secs(secs));
+                ////////
             }
         };
     }
