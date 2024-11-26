@@ -4,7 +4,7 @@ use neo4rs::{query, Graph};
 
 use crate::{
     batch_tx_type::BatchTxReturn,
-    cypher_templates::{write_batch_tx_string, write_batch_user_create},
+    cypher_templates::{to_cypher_object, write_batch_tx_string, write_batch_user_create},
     queue,
     schema_transaction::WarehouseTxMaster,
 };
@@ -139,4 +139,69 @@ pub async fn impl_batch_tx_insert(
         unchanged_accounts,
         created_tx,
     })
+}
+
+pub fn alt_write_batch_tx_string(txs: &[WarehouseTxMaster]) -> Result<String> {
+    let mut inserts = "".to_string();
+    for t in txs {
+        let mut maybe_args = "".to_string();
+        if let Some(ef) = &t.entry_function {
+            maybe_args = format!("SET rel += {},", to_cypher_object(ef)?);
+        }
+
+        let each_insert = format!(
+            r#"
+MERGE (from:Account {{address: '{sender}' }})
+MERGE (to:Account {{address: '{recipient}' }})
+MERGE (from)-[rel:{relation} {{
+  tx_hash: '{tx_hash}',
+  block_datetime: '{block_datetime}',
+  block_timestamp: '{block_timestamp}',
+  function: '{function}'
+}}]->(to)
+
+ON CREATE SET rel.created_at = timestamp(), rel.modified_at = null
+{maybe_args}
+
+ON MATCH SET rel.modified_at = timestamp()
+{maybe_args}
+
+"#,
+            sender = t.sender.to_hex_literal(),
+            recipient = t
+                .relation_label
+                .get_recipient()
+                .unwrap_or(t.sender.clone())
+                .to_hex_literal(),
+            tx_hash = t.tx_hash.to_string(),
+            relation = t.relation_label.to_cypher_label(),
+            function = t.function,
+            block_datetime = t.block_datetime.to_rfc3339(),
+            block_timestamp = t.block_timestamp,
+        );
+
+        inserts = format!("{}\n{}", inserts, each_insert);
+    }
+
+    let query = format!(
+        r#"
+{}
+
+WITH rel
+RETURN
+  COUNT(CASE WHEN rel.created_at = timestamp() THEN 1 END) AS created_tx,
+  COUNT(CASE WHEN rel.modified_at = timestamp() AND rel.created_at < timestamp() THEN 1 END) AS modified_tx
+"#,
+        inserts
+    );
+
+    Ok(query)
+}
+
+#[test]
+
+fn test_each_insert() {
+    let tx1 = WarehouseTxMaster::default();
+    let s = alt_write_batch_tx_string(&vec![tx1]);
+    dbg!(&s);
 }
