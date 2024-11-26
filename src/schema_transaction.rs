@@ -78,7 +78,7 @@ pub struct WarehouseTxMaster {
     pub tx_hash: HashValue,
     pub relation_label: RelationLabel,
     pub sender: AccountAddress,
-    pub recipient: Option<AccountAddress>,
+    // pub recipient: Option<AccountAddress>,
     pub function: String,
     pub epoch: u64,
     pub round: u64,
@@ -95,7 +95,6 @@ impl Default for WarehouseTxMaster {
             tx_hash: HashValue::zero(),
             relation_label: RelationLabel::Configuration,
             sender: AccountAddress::ZERO,
-            recipient: Some(AccountAddress::ZERO),
             function: "none".to_owned(),
             epoch: 0,
             round: 0,
@@ -116,8 +115,8 @@ impl WarehouseTxMaster {
     /// that crate was 3 years ago.
     pub fn to_cypher_object_template(&self) -> String {
         let tx_args = match &self.entry_function {
-            Some(ef) => to_cypher_object(ef, None).unwrap_or("{test: 0}".to_string()),
-            None => "{test: 1}".to_owned(),
+            Some(ef) => to_cypher_object(ef).unwrap_or("null".to_string()),
+            None => "null".to_owned(),
         };
 
         format!(
@@ -130,7 +129,10 @@ impl WarehouseTxMaster {
             self.sender.to_hex_literal(),
             tx_args,
             // TODO: should be from relation_label.get_recipient
-            self.recipient.unwrap_or(self.sender).to_hex_literal(),
+            self.relation_label
+                .get_recipient()
+                .unwrap_or(self.sender)
+                .to_hex_literal(),
         )
     }
 

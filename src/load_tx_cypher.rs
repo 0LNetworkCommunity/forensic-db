@@ -75,7 +75,7 @@ pub async fn impl_batch_tx_insert(
         if !unique_addrs.contains(&t.sender) {
             unique_addrs.push(t.sender);
         }
-        if let Some(r) = t.recipient {
+        if let Some(r) = t.relation_label.get_recipient() {
             if !unique_addrs.contains(&r) {
                 unique_addrs.push(r);
             }
@@ -90,6 +90,7 @@ pub async fn impl_batch_tx_insert(
     // cypher queries makes it annoying to do a single insert of users and
     // txs
     let cypher_string = write_batch_user_create(&list_str);
+    // dbg!(format!("{:#}",cypher_string));
 
     // Execute the query
     let cypher_query = query(&cypher_string);
@@ -116,10 +117,10 @@ pub async fn impl_batch_tx_insert(
     let cypher_string = write_batch_tx_string(&list_str);
     // Execute the query
     let cypher_query = query(&cypher_string);
-    let mut res = pool
-        .execute(cypher_query)
-        .await
-        .context("execute query error")?;
+    let mut res = pool.execute(cypher_query).await.context(format!(
+        "execute query error. Query string: {:#}",
+        &cypher_string
+    ))?;
     let row = res.next().await?.context("no row returned")?;
     let created_tx: u64 = row.get("created_tx").context("no created_tx field")?;
 
