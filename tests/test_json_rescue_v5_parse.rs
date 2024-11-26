@@ -65,7 +65,7 @@ fn test_rescue_v5_parse_miner_tx() -> anyhow::Result<()> {
 
 #[test]
 fn test_json_format_example() -> anyhow::Result<()> {
-    let p = fixtures::v5_json_tx_path().join("example_user_tx.json");
+    let p = fixtures::v5_json_tx_path().join("example_create_user.json");
 
     let (tx, _) = extract_v5_json_rescue(&p)?;
     let first = tx.first().unwrap();

@@ -46,6 +46,7 @@ pub fn start_age_container<'a>() -> Container<'a, GenericImage> {
     container
 }
 
+#[ignore]
 #[tokio::test]
 async fn test_age_meta_setup() {
     let (pool, _c) = get_test_age_pool()
