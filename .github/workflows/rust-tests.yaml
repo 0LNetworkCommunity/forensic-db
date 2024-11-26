@@ -16,7 +16,7 @@ on:
     - cron: "30 00 * * *"
 
 jobs:
-  types:
+  all-tests:
     timeout-minutes: 60
     runs-on: ubuntu-latest
     steps:

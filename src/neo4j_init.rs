@@ -23,6 +23,9 @@ pub static INDEX_HEX_ADDR: &str =
 pub static INDEX_TX_TIMESTAMP: &str =
     "CREATE INDEX tx_timestamp IF NOT EXISTS FOR ()-[r:Tx]-() ON (r.block_timestamp)";
 
+pub static INDEX_TX_HASH: &str =
+    "CREATE INDEX tx_function IF NOT EXISTS FOR ()-[r:Tx]-() ON (r.tx_hash)";
+
 pub static INDEX_TX_FUNCTION: &str =
     "CREATE INDEX tx_function IF NOT EXISTS FOR ()-[r:Tx]-() ON (r.function)";
 
@@ -58,6 +61,7 @@ pub async fn maybe_create_indexes(graph: &Graph) -> Result<()> {
         TX_CONSTRAINT,
         INDEX_HEX_ADDR,
         INDEX_TX_TIMESTAMP,
+        INDEX_TX_HASH,
         INDEX_TX_FUNCTION,
         INDEX_SWAP_ID,
     ])

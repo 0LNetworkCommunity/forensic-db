@@ -3,7 +3,11 @@ use crate::cypher_templates::to_cypher_object;
 use chrono::{DateTime, Utc};
 use diem_crypto::HashValue;
 use diem_types::account_config::{DepositEvent, WithdrawEvent};
-use libra_backwards_compatibility::sdk::v7_libra_framework_sdk_builder::EntryFunctionCall;
+use libra_backwards_compatibility::sdk::{
+    v5_0_0_genesis_transaction_script_builder::ScriptFunctionCall as ScriptFunctionCallGenesis,
+    v5_2_0_transaction_script_builder::ScriptFunctionCall as ScriptFunctionCallV520,
+    v7_libra_framework_sdk_builder::EntryFunctionCall,
+};
 use libra_types::{exports::AccountAddress, move_resource::coin_register_event::CoinRegisterEvent};
 use serde::{Deserialize, Serialize};
 
@@ -65,7 +69,8 @@ pub enum EntryFunctionArgs {
     V7(EntryFunctionCall),
     // TODO:
     // V6(V6EntryFunctionCall),
-    // V5(V5EntryFunctionCall),
+    V5(ScriptFunctionCallGenesis),
+    V520(ScriptFunctionCallV520),
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -73,7 +78,7 @@ pub struct WarehouseTxMaster {
     pub tx_hash: HashValue,
     pub relation_label: RelationLabel,
     pub sender: AccountAddress,
-    pub recipient: Option<AccountAddress>,
+    // pub recipient: Option<AccountAddress>,
     pub function: String,
     pub epoch: u64,
     pub round: u64,
@@ -90,7 +95,6 @@ impl Default for WarehouseTxMaster {
             tx_hash: HashValue::zero(),
             relation_label: RelationLabel::Configuration,
             sender: AccountAddress::ZERO,
-            recipient: Some(AccountAddress::ZERO),
             function: "none".to_owned(),
             epoch: 0,
             round: 0,
@@ -107,24 +111,31 @@ impl WarehouseTxMaster {
     /// since no sane Cypher serialization libraries exist.
     /// and I'm not going to write a deserializer.
     /// and JSON is not the same format as cypher property maps
-    /// JSON5 but the last time someone updated
+    /// I'd use JSON5 but the last time someone updated
     /// that crate was 3 years ago.
     pub fn to_cypher_object_template(&self) -> String {
-        let tx_args = match &self.entry_function {
-            Some(ef) => to_cypher_object(ef, None).unwrap_or("{test: 0}".to_string()),
-            None => "{test: 1}".to_owned(),
+        // make blank string or nest the arguments
+        let mut tx_args = "NULL".to_string();
+        if let Some(args) = &self.entry_function {
+            if let Ok(st) = to_cypher_object(args) {
+                tx_args = st;
+            }
         };
 
         format!(
-            r#"{{tx_hash: "{}", block_datetime: datetime("{}"), block_timestamp: {}, relation: "{}", function: "{}", sender: "{}", args: {}, recipient: "{}"}}"#,
+            r#"{{ args: {maybe_args_here}, tx_hash: "{}", block_datetime: datetime("{}"), block_timestamp: {}, relation: "{}", function: "{}", sender: "{}", recipient: "{}"}}"#,
             self.tx_hash.to_hex_literal(),
             self.block_datetime.to_rfc3339(),
             self.block_timestamp,
             self.relation_label.to_cypher_label(),
             self.function,
             self.sender.to_hex_literal(),
-            tx_args,
-            self.recipient.unwrap_or(self.sender).to_hex_literal(),
+            // TODO: should be from relation_label.get_recipient
+            self.relation_label
+                .get_recipient()
+                .unwrap_or(self.sender)
+                .to_hex_literal(),
+            maybe_args_here = tx_args,
         )
     }
 

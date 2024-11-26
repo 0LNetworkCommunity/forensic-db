@@ -1,0 +1,42 @@
+[
+  {
+    "timestamp_usecs": 1635359958547497,
+    "version": 8894,
+    "transaction": {
+      "type": "user",
+      "sender": "bc25f79fef8a981be4636ac1a2d6f587",
+      "signature_scheme": "Scheme::Ed25519",
+      "signature": "4f2450fda8268f576a940492143fa3be3cb2996dc21bcfb831dbe41467ddcaee7a71b28972fe949e2096b285f3f1a47666fba6279819e56f751e5cb28317110b",
+      "public_key": "87ffd54dbb191bac3c6e9ac1529ff90fe135183e822781a15ce884942ac00d91",
+      "secondary_signers": [],
+      "secondary_signature_schemes": [],
+      "secondary_signatures": [],
+      "secondary_public_keys": [],
+      "sequence_number": 0,
+      "chain_id": 1,
+      "max_gas_amount": 1000,
+      "gas_unit_price": 1,
+      "gas_currency": "GAS",
+      "expiration_timestamp_secs": 1635364957,
+      "script_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "script_bytes": "000000000000000000000000000000010d57616c6c6574536372697074730f7365745f77616c6c65745f7479706500010101",
+      "script": {
+        "type": "script_function",
+        "arguments_bcs": [
+          "01"
+        ],
+        "type_arguments": [],
+        "module_address": "00000000000000000000000000000001",
+        "module_name": "WalletScripts",
+        "function_name": "set_wallet_type"
+      }
+    },
+    "hash": "38c10074d1ea68691f36c998b91eb0bb4df3db4381fd1235c989572276911f5f",
+    "bytes": "00bc25f79fef8a981be4636ac1a2d6f587000000000000000003000000000000000000000000000000010d57616c6c6574536372697074730f7365745f77616c6c65745f7479706500010101e8030000000000000100000000000000034741535db079610000000001002087ffd54dbb191bac3c6e9ac1529ff90fe135183e822781a15ce884942ac00d91404f2450fda8268f576a940492143fa3be3cb2996dc21bcfb831dbe41467ddcaee7a71b28972fe949e2096b285f3f1a47666fba6279819e56f751e5cb28317110b",
+    "events": [],
+    "vm_status": {
+      "type": "executed"
+    },
+    "gas_used": 40
+  }
+]

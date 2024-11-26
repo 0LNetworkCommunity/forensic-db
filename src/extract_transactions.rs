@@ -125,7 +125,6 @@ pub fn make_master_tx(
         tx_hash,
         expiration_timestamp: user_tx.expiration_timestamp_secs(),
         sender: user_tx.sender(),
-        recipient: relation_label.get_recipient(),
         epoch,
         round,
         block_timestamp,

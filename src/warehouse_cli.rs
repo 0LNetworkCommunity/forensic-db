@@ -7,6 +7,7 @@ use std::path::PathBuf;
 use crate::{
     enrich_exchange_onboarding::{self, ExchangeOnRamp},
     enrich_whitepages::{self, Whitepages},
+    json_rescue_v5_load,
     load::{ingest_all, try_load_one_archive},
     load_exchange_orders,
     neo4j_init::{self, get_credentials_from_env, PASS_ENV, URI_ENV, USER_ENV},
@@ -87,6 +88,11 @@ pub enum Sub {
         /// file with owner map
         owner_json: PathBuf,
     },
+    VersionFiveTx {
+        #[clap(long)]
+        /// starting path for v5 .tgz files
+        archive_dir: PathBuf,
+    },
 }
 
 impl WarehouseCli {
@@ -164,6 +170,11 @@ impl WarehouseCli {
                 let owners_merged = enrich_whitepages::impl_batch_tx_insert(&pool, &wp).await?;
 
                 println!("SUCCESS: {} owner accounts linked", owners_merged);
+            }
+            Sub::VersionFiveTx { archive_dir } => {
+                let pool = try_db_connection_pool(self).await?;
+
+                json_rescue_v5_load::rip(archive_dir, &pool).await?;
             }
         };
         Ok(())

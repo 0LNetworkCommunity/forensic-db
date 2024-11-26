@@ -1,11 +1,10 @@
 use anyhow::{Context, Result};
-use log::{error, info, warn};
+use log::{error, info};
 use neo4rs::{query, Graph};
-use std::{thread, time::Duration};
 
 use crate::{
     batch_tx_type::BatchTxReturn,
-    cypher_templates::{write_batch_tx_string, write_batch_user_create},
+    cypher_templates::{to_cypher_object, write_batch_tx_string, write_batch_user_create},
     queue,
     schema_transaction::WarehouseTxMaster,
 };
@@ -48,17 +47,18 @@ pub async fn tx_batch(
 
         match impl_batch_tx_insert(pool, c).await {
             Ok(batch) => {
-                // dbg!(&batch);
                 all_results.increment(&batch);
-                // dbg!(&all_results);
                 queue::update_task(pool, archive_id, true, i).await?;
                 info!("...success");
             }
             Err(e) => {
-                let secs = 10;
-                error!("skipping batch, could not insert: {:?}", e);
-                warn!("waiting {} secs before retrying connection", secs);
-                thread::sleep(Duration::from_secs(secs));
+                error!("could not insert batch: {:?}", e);
+                ////////
+                // TODO: do we need to handle connection errors?
+                // let secs = 10;
+                // warn!("waiting {} secs before retrying connection", secs);
+                // thread::sleep(Duration::from_secs(secs));
+                ////////
             }
         };
     }
@@ -75,7 +75,7 @@ pub async fn impl_batch_tx_insert(
         if !unique_addrs.contains(&t.sender) {
             unique_addrs.push(t.sender);
         }
-        if let Some(r) = t.recipient {
+        if let Some(r) = t.relation_label.get_recipient() {
             if !unique_addrs.contains(&r) {
                 unique_addrs.push(r);
             }
@@ -90,6 +90,7 @@ pub async fn impl_batch_tx_insert(
     // cypher queries makes it annoying to do a single insert of users and
     // txs
     let cypher_string = write_batch_user_create(&list_str);
+    // dbg!(format!("{:#}",cypher_string));
 
     // Execute the query
     let cypher_query = query(&cypher_string);
@@ -116,10 +117,10 @@ pub async fn impl_batch_tx_insert(
     let cypher_string = write_batch_tx_string(&list_str);
     // Execute the query
     let cypher_query = query(&cypher_string);
-    let mut res = pool
-        .execute(cypher_query)
-        .await
-        .context("execute query error")?;
+    let mut res = pool.execute(cypher_query).await.context(format!(
+        "execute query error. Query string: {:#}",
+        &cypher_string
+    ))?;
     let row = res.next().await?.context("no row returned")?;
     let created_tx: u64 = row.get("created_tx").context("no created_tx field")?;
 
@@ -138,4 +139,69 @@ pub async fn impl_batch_tx_insert(
         unchanged_accounts,
         created_tx,
     })
+}
+
+pub fn alt_write_batch_tx_string(txs: &[WarehouseTxMaster]) -> Result<String> {
+    let mut inserts = "".to_string();
+    for t in txs {
+        let mut maybe_args = "".to_string();
+        if let Some(ef) = &t.entry_function {
+            maybe_args = format!("SET rel += {},", to_cypher_object(ef)?);
+        }
+
+        let each_insert = format!(
+            r#"
+MERGE (from:Account {{address: '{sender}' }})
+MERGE (to:Account {{address: '{recipient}' }})
+MERGE (from)-[rel:{relation} {{
+  tx_hash: '{tx_hash}',
+  block_datetime: '{block_datetime}',
+  block_timestamp: '{block_timestamp}',
+  function: '{function}'
+}}]->(to)
+
+ON CREATE SET rel.created_at = timestamp(), rel.modified_at = null
+{maybe_args}
+
+ON MATCH SET rel.modified_at = timestamp()
+{maybe_args}
+
+"#,
+            sender = t.sender.to_hex_literal(),
+            recipient = t
+                .relation_label
+                .get_recipient()
+                .unwrap_or(t.sender)
+                .to_hex_literal(),
+            tx_hash = t.tx_hash,
+            relation = t.relation_label.to_cypher_label(),
+            function = t.function,
+            block_datetime = t.block_datetime.to_rfc3339(),
+            block_timestamp = t.block_timestamp,
+        );
+
+        inserts = format!("{}\n{}", inserts, each_insert);
+    }
+
+    let query = format!(
+        r#"
+{}
+
+WITH rel
+RETURN
+  COUNT(CASE WHEN rel.created_at = timestamp() THEN 1 END) AS created_tx,
+  COUNT(CASE WHEN rel.modified_at = timestamp() AND rel.created_at < timestamp() THEN 1 END) AS modified_tx
+"#,
+        inserts
+    );
+
+    Ok(query)
+}
+
+#[test]
+
+fn test_each_insert() {
+    let tx1 = WarehouseTxMaster::default();
+    let s = alt_write_batch_tx_string(&vec![tx1]);
+    dbg!(&s);
 }
