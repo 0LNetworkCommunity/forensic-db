@@ -13,7 +13,6 @@ use std::path::Path;
 use std::sync::Arc;
 use tokio::sync::{Mutex, Semaphore};
 use tokio::task;
-use sysinfo::{System, SystemExt};
 
 /// How many records to read from the archives before attempting insert
 // static LOAD_QUEUE_SIZE: usize = 1000;

@@ -98,7 +98,7 @@ pub fn decode_transaction_args(wtx: &mut WarehouseTxMaster, tx_bytes: &[u8]) -> 
                     }
                     ScriptFunctionCallGenesis::AutopayCreateInstruction { payee, .. } => {
                         wtx.relation_label =
-                            RelationLabel::Transfer(cast_legacy_account(destination)?);
+                            RelationLabel::Transfer(cast_legacy_account(payee)?);
                         wtx.entry_function = Some(EntryFunctionArgs::V5(sf.to_owned()));
                     }
                     ScriptFunctionCallGenesis::CreateAccUser { .. } => {
