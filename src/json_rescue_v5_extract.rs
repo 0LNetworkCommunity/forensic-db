@@ -64,7 +64,7 @@ pub fn extract_v5_json_rescue(
                     RelationLabel::Transfer(_) => tx_vec.push(wtxs),
                     RelationLabel::Onboarding(_) => tx_vec.push(wtxs),
                     RelationLabel::Vouch(_) => tx_vec.push(wtxs),
-                    RelationLabel::Configuration => { tx_vec.push(wtxs) }
+                    RelationLabel::Configuration => {},
                     RelationLabel::Miner => {}
                 };
             }
