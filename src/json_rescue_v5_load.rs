@@ -60,7 +60,7 @@ pub async fn decompress_and_extract(tgz_file: &Path, pool: &Graph) -> Result<u64
     Ok(created_count)
 }
 
-const MAX_CONCURRENT_PARSE: usize = 50; // Number of concurrent parsing tasks
+const MAX_CONCURRENT_PARSE: usize = 25; // Number of concurrent parsing tasks
 const MAX_CONCURRENT_INSERT: usize = 1; // Number of concurrent database insert tasks
 
 pub async fn concurrent_decompress_and_extract(tgz_file: &Path, pool: &Graph) -> Result<u64> {
@@ -102,7 +102,7 @@ pub async fn concurrent_decompress_and_extract(tgz_file: &Path, pool: &Graph) ->
                     }
                 }
             }
-            Ok::<(), anyhow::Error>(())
+            Ok(())
         })
     });
 
@@ -202,7 +202,7 @@ pub async fn rip(start_dir: &Path, pool: &Graph) -> Result<u64> {
     info!("tgz archives found: {}", tgz_list.len());
     let mut txs = 0u64;
     for p in tgz_list.iter() {
-        match decompress_and_extract(p, pool).await {
+        match concurrent_decompress_and_extract(p, pool).await {
             Ok(t) => txs += t,
             Err(e) => {
                 error!(
