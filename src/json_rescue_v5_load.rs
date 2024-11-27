@@ -83,7 +83,7 @@ pub async fn concurrent_decompress_and_extract(tgz_file: &Path, pool: &Graph) ->
         task::spawn(async move {
             let _permit = parse_semaphore.acquire().await.unwrap(); // Control parsing concurrency
             if let Ok((mut r, _e)) = extract_v5_json_rescue(&j) {
-                let drain: Vec<WarehouseTxMaster> = r.drain(..).collect();
+                let drain: Vec<WarehouseTxMaster> = std::mem::take(&mut r);
 
                 if !drain.is_empty() {
                     let _db_permit = semaphore.acquire().await.unwrap(); // Control DB insert concurrency
@@ -102,7 +102,7 @@ pub async fn concurrent_decompress_and_extract(tgz_file: &Path, pool: &Graph) ->
                     }
                 }
             }
-            Ok(())
+            Ok::<(), anyhow::Error>(())
         })
     });
 
@@ -151,7 +151,7 @@ pub async fn stream_decompress_and_extract(tgz_file: &Path, pool: &Graph) -> Res
                 let _parse_permit = parse_semaphore.acquire().await.unwrap();
 
                 if let Ok((mut records, _e)) = extract_v5_json_rescue(&j) {
-                    let batch = records.drain(..).collect::<Vec<_>>();
+                    let batch = std::mem::take(&mut records);
 
                     if !batch.is_empty() {
                         let _insert_permit = insert_semaphore.acquire().await.unwrap();

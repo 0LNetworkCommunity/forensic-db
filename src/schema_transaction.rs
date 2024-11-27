@@ -11,7 +11,7 @@ use libra_backwards_compatibility::sdk::{
 use libra_types::{exports::AccountAddress, move_resource::coin_register_event::CoinRegisterEvent};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum RelationLabel {
     Tx, // undefined tx
     Transfer(AccountAddress),

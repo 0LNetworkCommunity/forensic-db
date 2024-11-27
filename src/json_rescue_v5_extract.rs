@@ -53,7 +53,10 @@ pub fn extract_v5_json_rescue(
                 // wtxs.events
                 // wtxs.block_timestamp
 
-                tx_vec.push(wtxs);
+                // TODO: create arg to exclude miner txs
+                if wtxs.relation_label != RelationLabel::Miner {
+                    tx_vec.push(wtxs);
+                }
             }
             TransactionDataView::BlockMetadata { timestamp_usecs: _ } => {
                 // TODO get epoch events
