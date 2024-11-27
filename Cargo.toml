@@ -33,6 +33,7 @@ tokio = { version = "1", features = ["full"] }
 hex = "0.4.3"
 tar = "0.4.43"
 smooth-json = "0.2.7"
+futures = "0.3.31"
 
 [dev-dependencies]
 sqlx = { version = "0.8", features = [ "runtime-tokio", "tls-native-tls", "sqlite", "migrate", "macros", "derive", "postgres"] }
