@@ -60,8 +60,8 @@ pub async fn decompress_and_extract(tgz_file: &Path, pool: &Graph) -> Result<u64
     Ok(created_count)
 }
 
-const MAX_CONCURRENT_PARSE: usize = 4; // Number of concurrent parsing tasks
-const MAX_CONCURRENT_INSERT: usize = 2; // Number of concurrent database insert tasks
+const MAX_CONCURRENT_PARSE: usize = 50; // Number of concurrent parsing tasks
+const MAX_CONCURRENT_INSERT: usize = 1; // Number of concurrent database insert tasks
 
 pub async fn concurrent_decompress_and_extract(tgz_file: &Path, pool: &Graph) -> Result<u64> {
     let temppath = decompress_to_temppath(tgz_file)?;
@@ -128,13 +128,6 @@ pub async fn concurrent_decompress_and_extract(tgz_file: &Path, pool: &Graph) ->
     Ok(created_count)
 }
 
-use futures::{stream, StreamExt};
-use tokio::sync::Semaphore;
-use std::sync::Arc;
-
-const MAX_CONCURRENT_PARSE: usize = 4; // Number of concurrent parsing tasks
-const MAX_CONCURRENT_INSERT: usize = 2; // Number of concurrent database insert tasks
-
 pub async fn stream_decompress_and_extract(tgz_file: &Path, pool: &Graph) -> Result<u64> {
     let temppath = decompress_to_temppath(tgz_file)?;
     let json_vec = list_all_json_files(temppath.path())?;
@@ -145,48 +138,51 @@ pub async fn stream_decompress_and_extract(tgz_file: &Path, pool: &Graph) -> Res
     let parse_semaphore = Arc::new(Semaphore::new(MAX_CONCURRENT_PARSE));
     let insert_semaphore = Arc::new(Semaphore::new(MAX_CONCURRENT_INSERT));
 
-    // Stream for parsing JSON files
-    let parse_stream = stream::iter(json_vec).map(|j| {
-        let parse_semaphore = Arc::clone(&parse_semaphore);
-        let insert_semaphore = Arc::clone(&insert_semaphore);
-        let found_count = Arc::clone(&found_count);
-        let created_count = Arc::clone(&created_count);
-        let pool = pool.clone();
+    // Stream for JSON file processing
+    let results: Vec<_> = stream::iter(json_vec)
+        .map(|j| {
+            let parse_semaphore = Arc::clone(&parse_semaphore);
+            let insert_semaphore = Arc::clone(&insert_semaphore);
+            let found_count = Arc::clone(&found_count);
+            let created_count = Arc::clone(&created_count);
+            let pool = pool.clone();
 
-        async move {
-            let _parse_permit = parse_semaphore.acquire().await.unwrap();
-            if let Ok((mut records, _e)) = extract_v5_json_rescue(&j) {
-                let batch = records.drain(..).collect::<Vec<_>>();
+            async move {
+                let _parse_permit = parse_semaphore.acquire().await.unwrap();
 
-                if !batch.is_empty() {
-                    let _insert_permit = insert_semaphore.acquire().await.unwrap();
-                    let res = tx_batch(
-                        &batch,
-                        &pool,
-                        QUERY_BATCH_SIZE,
-                        j.file_name().unwrap().to_str().unwrap(),
-                    )
-                    .await?;
+                if let Ok((mut records, _e)) = extract_v5_json_rescue(&j) {
+                    let batch = records.drain(..).collect::<Vec<_>>();
 
-                    let mut fc = found_count.lock().await;
-                    let mut cc = created_count.lock().await;
-                    *fc += batch.len() as u64;
-                    *cc += res.created_tx as u64;
+                    if !batch.is_empty() {
+                        let _insert_permit = insert_semaphore.acquire().await.unwrap();
+                        let res = tx_batch(
+                            &batch,
+                            &pool,
+                            QUERY_BATCH_SIZE,
+                            j.file_name().unwrap().to_str().unwrap(),
+                        )
+                        .await?;
+
+                        let mut fc = found_count.lock().await;
+                        let mut cc = created_count.lock().await;
+                        *fc += batch.len() as u64;
+                        *cc += res.created_tx as u64;
+                    }
                 }
-            }
-            Ok::<(), anyhow::Error>(())
-        }
-    });
 
-    // Process the stream with controlled concurrency
-    parse_stream
-        .buffer_unordered(MAX_CONCURRENT_PARSE)
-        .for_each(|result| async {
-            if let Err(e) = result {
-                error!("Failed to process file: {:?}", e);
+                Ok::<(), anyhow::Error>(())
             }
         })
+        .buffer_unordered(MAX_CONCURRENT_PARSE) // Concurrency for parsing
+        .collect::<Vec<_>>() // Waits for all tasks to finish
         .await;
+
+    // Check for errors in results
+    for result in results {
+        if let Err(e) = result {
+            error!("Task failed: {:?}", e);
+        }
+    }
 
     // Gather final counts
     let found_count = *found_count.lock().await;
@@ -200,7 +196,6 @@ pub async fn stream_decompress_and_extract(tgz_file: &Path, pool: &Graph) -> Res
 
     Ok(created_count)
 }
-
 
 pub async fn rip(start_dir: &Path, pool: &Graph) -> Result<u64> {
     let tgz_list = list_all_tgz_archives(start_dir)?;
