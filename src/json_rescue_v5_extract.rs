@@ -26,7 +26,7 @@ use std::path::{Path, PathBuf};
 
 pub fn extract_v5_json_rescue(
     one_json_file: &Path,
-) -> Result<(Vec<WarehouseTxMaster>, Vec<WarehouseEvent>)> {
+) -> Result<(Vec<WarehouseTxMaster>, Vec<WarehouseEvent>, Vec<String>)> {
     let json = std::fs::read_to_string(one_json_file).context("could not read file")?;
 
     let txs: Vec<TransactionViewV5> = serde_json::from_str(&json)
@@ -34,6 +34,7 @@ pub fn extract_v5_json_rescue(
 
     let mut tx_vec = vec![];
     let event_vec = vec![];
+    let mut unique_functions = vec![];
 
     for t in txs {
         let mut wtxs = WarehouseTxMaster::default();
@@ -46,6 +47,10 @@ pub fn extract_v5_json_rescue(
 
                 wtxs.function = make_function_name(script);
                 trace!("function: {}", &wtxs.function);
+                if !unique_functions.contains(&wtxs.function) {
+                  unique_functions.push(wtxs.function.clone());
+
+                }
 
                 decode_transaction_args(&mut wtxs, &t.bytes)?;
 
@@ -59,7 +64,7 @@ pub fn extract_v5_json_rescue(
                     RelationLabel::Transfer(_) => tx_vec.push(wtxs),
                     RelationLabel::Onboarding(_) => tx_vec.push(wtxs),
                     RelationLabel::Vouch(_) => tx_vec.push(wtxs),
-                    RelationLabel::Configuration => {}
+                    RelationLabel::Configuration => { tx_vec.push(wtxs) }
                     RelationLabel::Miner => {}
                 };
             }
@@ -74,7 +79,7 @@ pub fn extract_v5_json_rescue(
         }
     }
 
-    Ok((tx_vec, event_vec))
+    Ok((tx_vec, event_vec, unique_functions))
 }
 
 pub fn decode_transaction_args(wtx: &mut WarehouseTxMaster, tx_bytes: &[u8]) -> Result<()> {

@@ -102,7 +102,7 @@ async fn test_rescue_v5_parse_set_wallet_tx() -> anyhow::Result<()> {
 
     let path = fixtures::v5_json_tx_path().join("example_set_wallet_type.json");
 
-    let (vec_tx, _) = extract_v5_json_rescue(&path)?;
+    let (vec_tx, _, _) = extract_v5_json_rescue(&path)?;
 
     let c = start_neo4j_container();
     let port = c.get_host_port_ipv4(7687);

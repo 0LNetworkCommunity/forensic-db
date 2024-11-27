@@ -35,7 +35,7 @@ pub async fn decompress_and_extract(tgz_file: &Path, pool: &Graph) -> Result<u64
     let mut queue: Vec<WarehouseTxMaster> = vec![];
 
     for j in json_vec {
-        if let Ok((mut r, _e)) = extract_v5_json_rescue(&j) {
+        if let Ok((mut r, _e, _)) = extract_v5_json_rescue(&j) {
             queue.append(&mut r);
         }
 
@@ -68,8 +68,8 @@ pub async fn decompress_and_extract(tgz_file: &Path, pool: &Graph) -> Result<u64
     Ok(created_count)
 }
 
-const MAX_CONCURRENT_PARSE: usize = 25; // Number of concurrent parsing tasks
-const MAX_CONCURRENT_INSERT: usize = 1; // Number of concurrent database insert tasks
+const MAX_CONCURRENT_PARSE: usize = 24; // Number of concurrent parsing tasks
+const MAX_CONCURRENT_INSERT: usize = 4; // Number of concurrent database insert tasks
 
 pub async fn concurrent_decompress_and_extract(tgz_file: &Path, pool: &Graph) -> Result<u64> {
     let temppath = decompress_to_temppath(tgz_file)?;
@@ -90,7 +90,7 @@ pub async fn concurrent_decompress_and_extract(tgz_file: &Path, pool: &Graph) ->
 
         task::spawn(async move {
             let _permit = parse_semaphore.acquire().await.unwrap(); // Control parsing concurrency
-            if let Ok((mut r, _e)) = extract_v5_json_rescue(&j) {
+            if let Ok((mut r, _e, _)) = extract_v5_json_rescue(&j) {
                 let drain: Vec<WarehouseTxMaster> = std::mem::take(&mut r);
 
                 if !drain.is_empty() {
@@ -163,7 +163,7 @@ pub async fn stream_decompress_and_extract(tgz_file: &Path, pool: &Graph) -> Res
             async move {
                 let _parse_permit = parse_semaphore.acquire().await.unwrap();
 
-                if let Ok((records, _e)) = extract_v5_json_rescue(&j) {
+                if let Ok((records, _e, unique_fun)) = extract_v5_json_rescue(&j) {
                     // let batch = std::mem::take(&mut records);
 
                     if !records.is_empty() {
@@ -177,9 +177,9 @@ pub async fn stream_decompress_and_extract(tgz_file: &Path, pool: &Graph) -> Res
                         .await?;
 
                         let mut uf = unique_functions.lock().await;
-                        for r in &records {
-                            if !uf.contains(&r.function) {
-                                uf.push(r.function.clone());
+                        for f in &unique_fun {
+                            if !uf.contains(&f) {
+                                uf.push(f.to_owned());
                             }
                         }
 

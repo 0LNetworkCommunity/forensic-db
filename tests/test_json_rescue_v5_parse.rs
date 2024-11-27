@@ -67,7 +67,7 @@ fn test_rescue_v5_parse_miner_tx() -> anyhow::Result<()> {
 fn test_json_format_example() -> anyhow::Result<()> {
     let p = fixtures::v5_json_tx_path().join("example_create_user.json");
 
-    let (tx, _) = extract_v5_json_rescue(&p)?;
+    let (tx, _, _) = extract_v5_json_rescue(&p)?;
     let first = tx.first().unwrap();
     dbg!(&tx);
 
@@ -80,7 +80,7 @@ fn test_json_full_file() -> anyhow::Result<()> {
     libra_forensic_db::log_setup();
     let p = fixtures::v5_json_tx_path().join("0-999.json");
 
-    let (tx, _) = extract_v5_json_rescue(&p)?;
+    let (tx, _, _) = extract_v5_json_rescue(&p)?;
 
     let first = tx.first().unwrap();
     dbg!(&first.entry_function);
@@ -95,7 +95,7 @@ fn decompress_and_read() {
     let temp_dir = decompress_to_temppath(&path).unwrap();
 
     let first_file = temp_dir.path().join("0-999.json");
-    let (tx, _) = extract_v5_json_rescue(&first_file).unwrap();
+    let (tx, _, _) = extract_v5_json_rescue(&first_file).unwrap();
     dbg!(&tx.len());
     assert!(tx.len() == 11);
     let first = tx.first().unwrap();
