@@ -67,7 +67,7 @@ async fn test_stream_load_all_tgz() -> anyhow::Result<()> {
 
     let path = fixtures::v5_json_tx_path().join("0-99900.tgz");
 
-    let tx_count = json_rescue_v5_load::stream_decompress_and_extract(&path, &pool).await?;
+    let tx_count = json_rescue_v5_load::alt_stream_decompress_and_extract(&path, &pool).await?;
 
     assert!(tx_count == 13);
 
