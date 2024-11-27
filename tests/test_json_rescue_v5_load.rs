@@ -69,7 +69,7 @@ async fn test_stream_load_all_tgz() -> anyhow::Result<()> {
 
     let tx_count = json_rescue_v5_load::stream_decompress_and_extract(&path, &pool).await?;
 
-    assert!(tx_count == 6157);
+    assert!(tx_count == 13);
 
     Ok(())
 }
@@ -90,7 +90,8 @@ async fn test_load_entrypoint() -> anyhow::Result<()> {
     let path = fixtures::v5_json_tx_path();
 
     let tx_count = json_rescue_v5_load::rip(&path, &pool).await?;
-    assert!(tx_count == 6157);
+    dbg!(&tx_count);
+    assert!(tx_count == 13);
 
     Ok(())
 }

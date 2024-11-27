@@ -53,10 +53,15 @@ pub fn extract_v5_json_rescue(
                 // wtxs.events
                 // wtxs.block_timestamp
 
-                // TODO: create arg to exclude miner txs
-                if wtxs.relation_label != RelationLabel::Miner {
-                    tx_vec.push(wtxs);
-                }
+                // TODO: create arg to exclude tx without counter party
+                match &wtxs.relation_label {
+                    RelationLabel::Tx => {}
+                    RelationLabel::Transfer(_) => tx_vec.push(wtxs),
+                    RelationLabel::Onboarding(_) => tx_vec.push(wtxs),
+                    RelationLabel::Vouch(_) => tx_vec.push(wtxs),
+                    RelationLabel::Configuration => {}
+                    RelationLabel::Miner => {}
+                };
             }
             TransactionDataView::BlockMetadata { timestamp_usecs: _ } => {
                 // TODO get epoch events
