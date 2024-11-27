@@ -174,7 +174,7 @@ impl WarehouseCli {
             Sub::VersionFiveTx { archive_dir } => {
                 let pool = try_db_connection_pool(self).await?;
 
-                json_rescue_v5_load::rip(archive_dir, &pool).await?;
+                json_rescue_v5_load::rip_concurrent_limited(archive_dir, &pool).await?;
             }
         };
         Ok(())

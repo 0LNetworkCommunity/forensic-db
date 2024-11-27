@@ -48,8 +48,7 @@ pub fn extract_v5_json_rescue(
                 wtxs.function = make_function_name(script);
                 trace!("function: {}", &wtxs.function);
                 if !unique_functions.contains(&wtxs.function) {
-                  unique_functions.push(wtxs.function.clone());
-
+                    unique_functions.push(wtxs.function.clone());
                 }
 
                 decode_transaction_args(&mut wtxs, &t.bytes)?;
@@ -64,7 +63,7 @@ pub fn extract_v5_json_rescue(
                     RelationLabel::Transfer(_) => tx_vec.push(wtxs),
                     RelationLabel::Onboarding(_) => tx_vec.push(wtxs),
                     RelationLabel::Vouch(_) => tx_vec.push(wtxs),
-                    RelationLabel::Configuration => {},
+                    RelationLabel::Configuration => {}
                     RelationLabel::Miner => {}
                 };
             }
@@ -95,6 +94,11 @@ pub fn decode_transaction_args(wtx: &mut WarehouseTxMaster, tx_bytes: &[u8]) -> 
                         wtx.relation_label =
                             RelationLabel::Transfer(cast_legacy_account(destination)?);
 
+                        wtx.entry_function = Some(EntryFunctionArgs::V5(sf.to_owned()));
+                    }
+                    ScriptFunctionCallGenesis::AutopayCreateInstruction { payee, .. } => {
+                        wtx.relation_label =
+                            RelationLabel::Transfer(cast_legacy_account(destination)?);
                         wtx.entry_function = Some(EntryFunctionArgs::V5(sf.to_owned()));
                     }
                     ScriptFunctionCallGenesis::CreateAccUser { .. } => {

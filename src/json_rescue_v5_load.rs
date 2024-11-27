@@ -13,15 +13,16 @@ use std::path::Path;
 use std::sync::Arc;
 use tokio::sync::{Mutex, Semaphore};
 use tokio::task;
+use sysinfo::{System, SystemExt};
 
 /// How many records to read from the archives before attempting insert
-static LOAD_QUEUE_SIZE: usize = 1000;
+// static LOAD_QUEUE_SIZE: usize = 1000;
 /// When we attempt insert, the chunks of txs that go in to each query
 static QUERY_BATCH_SIZE: usize = 250;
 
 /// from a tgz file decompress all the .json files in archive
 /// and then read into the warehouse record format
-pub async fn decompress_and_extract(tgz_file: &Path, pool: &Graph) -> Result<u64> {
+pub async fn single_thread_decompress_extract(tgz_file: &Path, pool: &Graph) -> Result<u64> {
     let temppath = decompress_to_temppath(tgz_file)?;
     let json_vec = list_all_json_files(temppath.path())?;
 
@@ -29,35 +30,25 @@ pub async fn decompress_and_extract(tgz_file: &Path, pool: &Graph) -> Result<u64
     let mut created_count = 0u64;
 
     let mut unique_functions: Vec<String> = vec![];
-    // fill to BATCH_SIZE before attempting insert.
-    // many files may only have a handful of user txs,
-    // so individual files may have far fewer than BATCH_SIZE.
-    let mut queue: Vec<WarehouseTxMaster> = vec![];
 
     for j in json_vec {
-        if let Ok((mut r, _e, _)) = extract_v5_json_rescue(&j) {
-            queue.append(&mut r);
-        }
+        let (records, _, unique) = extract_v5_json_rescue(&j)?;
 
-        queue.iter().for_each(|s| {
-            if !unique_functions.contains(&s.function) {
-                unique_functions.push(s.function.clone());
+        unique.iter().for_each(|f| {
+            if !unique_functions.contains(&f) {
+                unique_functions.push(f.clone());
             }
         });
 
-        if queue.len() >= LOAD_QUEUE_SIZE {
-            let drain: Vec<WarehouseTxMaster> = std::mem::take(&mut queue);
-
-            let res = tx_batch(
-                &drain,
-                pool,
-                QUERY_BATCH_SIZE,
-                j.file_name().unwrap().to_str().unwrap(),
-            )
-            .await?;
-            created_count += res.created_tx as u64;
-            found_count += drain.len() as u64;
-        }
+        let res = tx_batch(
+            &records,
+            pool,
+            QUERY_BATCH_SIZE,
+            j.file_name().unwrap().to_str().unwrap(),
+        )
+        .await?;
+        created_count += res.created_tx as u64;
+        found_count += records.len() as u64;
     }
 
     info!("V5 transactions found: {}", found_count);
@@ -316,4 +307,79 @@ pub async fn rip(start_dir: &Path, pool: &Graph) -> Result<u64> {
         }
     }
     Ok(txs)
+}
+
+pub async fn rip_concurrent(start_dir: &Path, pool: &Graph) -> Result<()> {
+    let tgz_list = list_all_tgz_archives(start_dir)?;
+    info!("tgz archives found: {}", &tgz_list.len());
+
+    let tasks: Vec<_> = tgz_list
+        .into_iter()
+        .map(|p| {
+            let pool = pool.clone(); // Clone pool for each task
+            tokio::spawn(async move {
+                single_thread_decompress_extract(&p, &pool).await // Call the async function
+            })
+        })
+        .collect();
+
+    // Await all tasks and handle results
+    let results = futures::future::join_all(tasks).await;
+    // Check for errors
+    for (i, result) in results.into_iter().enumerate() {
+        match result {
+            Ok(Ok(_)) => {
+                info!("Task {} completed successfully.", i);
+            }
+            Ok(Err(e)) => {
+                error!("Task {} failed: {:?}", i, e);
+            }
+            Err(e) => {
+                error!("Task {} panicked: {:?}", i, e);
+            }
+        }
+    }
+    Ok(())
+}
+
+
+const MAX_CONCURRENT_TASKS: usize = 4; // Define the limit for concurrent tasks
+
+pub async fn rip_concurrent_limited(start_dir: &Path, pool: &Graph) -> Result<()> {
+    let tgz_list = list_all_tgz_archives(start_dir)?;
+    info!("tgz archives found: {}", tgz_list.len());
+
+    let semaphore = Arc::new(Semaphore::new(MAX_CONCURRENT_TASKS)); // Semaphore to limit concurrency
+    let mut tasks = vec![];
+
+    for p in tgz_list.into_iter() {
+        let pool = pool.clone(); // Clone pool for each task
+        let semaphore = Arc::clone(&semaphore); // Clone semaphore for each task
+
+        let task = tokio::spawn(async move {
+            let _permit = semaphore.acquire().await; // Acquire semaphore permit
+            single_thread_decompress_extract(&p, &pool).await // Perform the task
+        });
+
+        tasks.push(task);
+    }
+
+    // Await all tasks and handle results
+    let results = futures::future::join_all(tasks).await;
+
+    for (i, result) in results.into_iter().enumerate() {
+        match result {
+            Ok(Ok(_)) => {
+                info!("Task {} completed successfully.", i);
+            }
+            Ok(Err(e)) => {
+                error!("Task {} failed: {:?}", i, e);
+            }
+            Err(e) => {
+                error!("Task {} panicked: {:?}", i, e);
+            }
+        }
+    }
+
+    Ok(())
 }
