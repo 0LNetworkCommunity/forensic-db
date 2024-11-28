@@ -6,7 +6,7 @@ use crate::{
     queue::{self},
 };
 use anyhow::Result;
-use log::{error, info, warn};
+use log::{error, info, trace, warn};
 use neo4rs::Graph;
 use std::sync::Arc;
 use std::{path::Path, thread::available_parallelism};
@@ -32,7 +32,7 @@ pub async fn single_thread_decompress_extract(tgz_file: &Path, pool: &Graph) -> 
         let archive_id = j.file_name().unwrap().to_str().unwrap();
         let complete = queue::are_all_completed(pool, archive_id).await?;
         if complete {
-            info!("skip parsing, this file was loaded successfully");
+            trace!("skip parsing, this file was loaded successfully");
             continue;
         }
 
@@ -61,7 +61,7 @@ pub async fn rip_concurrent_limited(
     start_dir: &Path,
     pool: &Graph,
     threads: Option<usize>,
-) -> Result<()> {
+) -> Result<u64> {
     let threads = threads.unwrap_or(available_parallelism().unwrap().get());
     info!("concurrent threads used: {}", threads);
 
@@ -90,8 +90,9 @@ pub async fn rip_concurrent_limited(
 
     for (i, result) in results.into_iter().enumerate() {
         match result {
-            Ok(Ok(_)) => {
+            Ok(Ok(n)) => {
                 info!("Task {} completed successfully.", i);
+                return Ok(n);
             }
             Ok(Err(e)) => {
                 error!("Task {} failed: {:?}", i, e);
@@ -102,5 +103,5 @@ pub async fn rip_concurrent_limited(
         }
     }
 
-    Ok(())
+    Ok(0)
 }

@@ -16,9 +16,15 @@ pub async fn tx_batch(
     batch_size: usize,
     archive_id: &str,
 ) -> Result<BatchTxReturn> {
+    info!("archive: {}", archive_id);
+
+    if txs.is_empty() {
+        // mark as complete so we don't retry
+        queue::update_task(pool, archive_id, true, 0).await?;
+    }
+
     let chunks: Vec<&[WarehouseTxMaster]> = txs.chunks(batch_size).collect();
     let mut all_results = BatchTxReturn::new();
-    info!("archive: {}", archive_id);
 
     for (i, c) in chunks.into_iter().enumerate() {
         info!("batch #{}", i);

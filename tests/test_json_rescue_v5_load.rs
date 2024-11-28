@@ -45,9 +45,32 @@ async fn test_load_entrypoint() -> anyhow::Result<()> {
 
     let path = fixtures::v5_json_tx_path();
 
-    json_rescue_v5_load::rip_concurrent_limited(&path, &pool, None).await?;
-    // dbg!(&tx_count);
-    // assert!(tx_count == 13);
+    let tx_count = json_rescue_v5_load::rip_concurrent_limited(&path, &pool, None).await?;
+    assert!(tx_count == 13);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_load_queue() -> anyhow::Result<()> {
+    libra_forensic_db::log_setup();
+
+    let c = start_neo4j_container();
+    let port = c.get_host_port_ipv4(7687);
+    let pool = get_neo4j_localhost_pool(port)
+        .await
+        .expect("could not get neo4j connection pool");
+    maybe_create_indexes(&pool)
+        .await
+        .expect("could start index");
+
+    let path = fixtures::v5_json_tx_path();
+
+    let tx_count = json_rescue_v5_load::rip_concurrent_limited(&path, &pool, None).await?;
+    assert!(tx_count == 13);
+
+    let tx_count = json_rescue_v5_load::rip_concurrent_limited(&path, &pool, None).await?;
+    assert!(tx_count == 0);
 
     Ok(())
 }
