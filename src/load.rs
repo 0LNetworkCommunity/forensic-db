@@ -48,8 +48,9 @@ pub async fn ingest_all(
             m.archive_dir.display()
         );
 
-        if pending.contains(&m.archive_id) {
-            info!("archive queued: {}", m.archive_dir.display());
+        let complete = queue::are_all_completed(pool, &m.archive_id).await?;
+
+        if !complete {
             let batch_tx_return = try_load_one_archive(m, pool, batch_size).await?;
             println!("SUCCESS: {}", batch_tx_return);
         } else {
