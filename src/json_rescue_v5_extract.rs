@@ -83,10 +83,13 @@ pub fn extract_v5_json_rescue(
 
 pub fn decode_transaction_args(wtx: &mut WarehouseTxMaster, tx_bytes: &[u8]) -> Result<()> {
     // test we can bcs decode to the transaction object
-    let t: TransactionV5 = bcs::from_bytes(tx_bytes).map_err(anyhow!(
-        "could not bcs decode tx_bytes, for function: {}",
-        wtx.function
-    ))?;
+    let t: TransactionV5 = bcs::from_bytes(tx_bytes).map_err(|err| {
+        anyhow!(
+            "could not bcs decode tx_bytes, for function: {}, msg: {:?}",
+            wtx.function,
+            err
+        )
+    })?;
 
     if let TransactionV5::UserTransaction(u) = &t {
         if let TransactionPayload::ScriptFunction(_) = &u.raw_txn.payload {
