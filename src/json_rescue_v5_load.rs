@@ -53,7 +53,7 @@ pub async fn single_thread_decompress_extract(tgz_file: &Path, pool: &Graph) -> 
     info!("V5 transactions found: {}", found_count);
     info!("V5 transactions processed: {}", created_count);
     if found_count != created_count {
-        error!("transactions loaded don't match transactions extracted");
+        warn!("transactions loaded don't match transactions extracted, perhaps previously loaded?");
     }
     Ok(created_count)
 }
