@@ -86,6 +86,35 @@ pub async fn is_batch_complete(
     }
 }
 
+// Three options: Not found in DB, found and complete, found and incomplete
+pub async fn are_all_completed(pool: &Graph, archive_id: &str) -> Result<bool> {
+    let cypher_string = format!(
+        r#"
+        MATCH (a:Queue {{archive_id: '{}' }})
+        WITH COLLECT(a.completed) AS completedStatuses, COUNT(a) AS totalTasks
+        RETURN CASE
+          WHEN totalTasks = 0 THEN false
+          ELSE ALL(status IN completedStatuses WHERE status = true)
+        END AS allCompleted;
+      "#,
+        archive_id,
+    );
+
+    let cypher_query = neo4rs::query(&cypher_string);
+
+    let mut res = pool
+        .execute(cypher_query)
+        .await
+        .context("execute query error")?;
+
+    if let Some(row) = res.next().await? {
+        // Extract `archive_id` as a String
+        Ok(row.get::<bool>("allCompleted")?)
+    } else {
+        bail!("not found")
+    }
+}
+
 // clear queue
 pub async fn clear_queue(pool: &Graph) -> Result<()> {
     let cypher_string = r#"

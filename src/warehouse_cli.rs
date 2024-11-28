@@ -33,6 +33,10 @@ pub struct WarehouseCli {
     /// force clear queue
     clear_queue: bool,
 
+    #[clap(long, short('t'))]
+    /// max tasks to run in parallel
+    threads: Option<usize>,
+
     #[clap(subcommand)]
     command: Sub,
 }
@@ -174,7 +178,12 @@ impl WarehouseCli {
             Sub::VersionFiveTx { archive_dir } => {
                 let pool = try_db_connection_pool(self).await?;
 
-                json_rescue_v5_load::rip_concurrent_limited(archive_dir, &pool).await?;
+                json_rescue_v5_load::rip_concurrent_limited(
+                    archive_dir,
+                    &pool,
+                    self.threads.to_owned(),
+                )
+                .await?;
             }
         };
         Ok(())
