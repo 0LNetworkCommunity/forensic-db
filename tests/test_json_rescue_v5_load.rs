@@ -96,8 +96,6 @@ async fn test_load_entrypoint() -> anyhow::Result<()> {
     Ok(())
 }
 
-
-
 #[tokio::test]
 async fn test_rescue_v5_parse_set_wallet_tx() -> anyhow::Result<()> {
     libra_forensic_db::log_setup();

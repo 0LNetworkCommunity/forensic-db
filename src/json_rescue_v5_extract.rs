@@ -83,7 +83,10 @@ pub fn extract_v5_json_rescue(
 
 pub fn decode_transaction_args(wtx: &mut WarehouseTxMaster, tx_bytes: &[u8]) -> Result<()> {
     // test we can bcs decode to the transaction object
-    let t: TransactionV5 = bcs::from_bytes(tx_bytes).unwrap();
+    let t: TransactionV5 = bcs::from_bytes(tx_bytes).context(&format!(
+        "could not bcs decode tx_bytes, for function: {}",
+        wtx.function
+    ))?;
 
     if let TransactionV5::UserTransaction(u) = &t {
         if let TransactionPayload::ScriptFunction(_) = &u.raw_txn.payload {
@@ -97,8 +100,7 @@ pub fn decode_transaction_args(wtx: &mut WarehouseTxMaster, tx_bytes: &[u8]) -> 
                         wtx.entry_function = Some(EntryFunctionArgs::V5(sf.to_owned()));
                     }
                     ScriptFunctionCallGenesis::AutopayCreateInstruction { payee, .. } => {
-                        wtx.relation_label =
-                            RelationLabel::Transfer(cast_legacy_account(payee)?);
+                        wtx.relation_label = RelationLabel::Transfer(cast_legacy_account(payee)?);
                         wtx.entry_function = Some(EntryFunctionArgs::V5(sf.to_owned()));
                     }
                     ScriptFunctionCallGenesis::CreateAccUser { .. } => {

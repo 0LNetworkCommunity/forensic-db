@@ -341,7 +341,6 @@ pub async fn rip_concurrent(start_dir: &Path, pool: &Graph) -> Result<()> {
     Ok(())
 }
 
-
 const MAX_CONCURRENT_TASKS: usize = 4; // Define the limit for concurrent tasks
 
 pub async fn rip_concurrent_limited(start_dir: &Path, pool: &Graph) -> Result<()> {
