@@ -32,7 +32,10 @@ pub async fn single_thread_decompress_extract(tgz_file: &Path, pool: &Graph) -> 
         let archive_id = j.file_name().unwrap().to_str().unwrap();
         let complete = queue::are_all_completed(pool, archive_id).await?;
         if complete {
-            trace!("skip parsing, this file was loaded successfully");
+            trace!(
+                "skip parsing {}, this file was loaded successfully",
+                archive_id
+            );
             continue;
         }
 
