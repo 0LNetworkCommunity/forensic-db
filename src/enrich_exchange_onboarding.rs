@@ -47,7 +47,7 @@ impl ExchangeOnRamp {
 
     pub fn to_cypher_object_template(&self) -> String {
         format!(
-            r#"{{user_id: "{}", address: "{}" }}"#,
+            r#"{{user_id: {}, address: "{}" }}"#,
             self.user_id,
             self.onboarding_addr.as_ref().unwrap().to_hex_literal(),
         )
@@ -103,6 +103,7 @@ pub async fn impl_batch_tx_insert(pool: &Graph, batch_txs: &[ExchangeOnRamp]) ->
     // cypher queries makes it annoying to do a single insert of users and
     // txs
     let cypher_string = ExchangeOnRamp::cypher_batch_link_owner(&list_str);
+    dbg!(&cypher_string);
 
     // Execute the query
     let cypher_query = neo4rs::query(&cypher_string);

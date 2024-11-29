@@ -1,10 +1,7 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
-use log::info;
+
 use serde::{Deserialize, Deserializer};
-use std::fs::File;
-use std::io::Read;
-use std::path::Path;
 
 #[derive(Clone, Debug, Deserialize)]
 #[allow(dead_code)]
@@ -102,20 +99,9 @@ where
     s.parse::<f64>().map_err(serde::de::Error::custom)
 }
 
-fn deserialize_orders(json_data: &str) -> Result<Vec<ExchangeOrder>> {
+pub fn deserialize_orders(json_data: &str) -> Result<Vec<ExchangeOrder>> {
     let orders: Vec<ExchangeOrder> = serde_json::from_str(json_data)?;
     Ok(orders)
-}
-
-pub fn read_orders_from_file<P: AsRef<Path>>(path: P) -> Result<Vec<ExchangeOrder>> {
-    let mut file = File::open(path)?;
-    let mut json_data = String::new();
-    file.read_to_string(&mut json_data)?;
-    let des = deserialize_orders(&json_data)?;
-
-    info!("Swap orders loaded: {}", des.len());
-
-    Ok(des)
 }
 
 #[test]

@@ -4,10 +4,7 @@ use anyhow::{Context, Result};
 use log::{error, info, warn};
 use neo4rs::{query, Graph};
 
-use crate::{
-    queue,
-    schema_exchange_orders::{read_orders_from_file, ExchangeOrder},
-};
+use crate::{extract_exchange_orders, queue, schema_exchange_orders::ExchangeOrder};
 
 pub async fn swap_batch(
     txs: &[ExchangeOrder],
@@ -84,6 +81,6 @@ pub async fn impl_batch_tx_insert(pool: &Graph, batch_txs: &[ExchangeOrder]) -> 
 }
 
 pub async fn load_from_json(path: &Path, pool: &Graph, batch_size: usize) -> Result<(u64, u64)> {
-    let orders = read_orders_from_file(path)?;
+    let orders = extract_exchange_orders::read_orders_from_file(path)?;
     swap_batch(&orders, pool, batch_size).await
 }

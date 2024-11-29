@@ -6,9 +6,9 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use libra_forensic_db::{
-    load_exchange_orders,
+    extract_exchange_orders, load_exchange_orders,
     neo4j_init::{get_neo4j_localhost_pool, maybe_create_indexes},
-    schema_exchange_orders::{read_orders_from_file, ExchangeOrder},
+    schema_exchange_orders::ExchangeOrder,
 };
 use neo4rs::query;
 
@@ -16,7 +16,7 @@ use neo4rs::query;
 fn open_parse_file() {
     let path = env!("CARGO_MANIFEST_DIR");
     let buf = PathBuf::from(path).join("tests/fixtures/savedOlOrders2.json");
-    let orders = read_orders_from_file(buf).unwrap();
+    let orders = extract_exchange_orders::read_orders_from_file(buf).unwrap();
     assert!(orders.len() == 25450);
 }
 
@@ -72,7 +72,7 @@ async fn e2e_swap_data() -> Result<()> {
 
     let path = env!("CARGO_MANIFEST_DIR");
     let buf = PathBuf::from(path).join("tests/fixtures/savedOlOrders2.json");
-    let orders = read_orders_from_file(buf).unwrap();
+    let orders = extract_exchange_orders::read_orders_from_file(buf).unwrap();
 
     assert!(orders.len() == 25450);
 
