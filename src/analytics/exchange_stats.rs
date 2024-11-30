@@ -72,7 +72,7 @@ pub async fn query_rms_analytics_chunk(
         r#"
 CALL {
   WITH txs, rms
-  REMOVE txs.test_rms_filtered
+  SET txs.rms_filtered = rms
   RETURN true as is_true
 }
 "#
