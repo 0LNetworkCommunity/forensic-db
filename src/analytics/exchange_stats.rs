@@ -20,6 +20,7 @@ pub async fn query_rms_analytics_concurrent(
     pool: &Graph,
     threads: Option<usize>,
     batch_size: Option<u64>,
+    persist: bool,
 ) -> Result<Vec<RMSResults>> {
     let threads = threads.unwrap_or(available_parallelism().unwrap().get());
 
@@ -42,7 +43,8 @@ pub async fn query_rms_analytics_concurrent(
             let _permit = semaphore.acquire().await; // Acquire semaphore permit
             info!("PROGRESS: {batch_sequence}/{n}");
             let skip_to = batch_sequence * batch_size;
-            query_rms_analytics_chunk(&pool, skip_to, batch_size).await // Perform the task
+            query_rms_analytics_chunk(&pool, skip_to, batch_size, persist).await
+            // Perform the task
         });
 
         tasks.push(task);
@@ -64,7 +66,19 @@ pub async fn query_rms_analytics_chunk(
     pool: &Graph,
     skip_to: u64,
     limit: u64,
+    persist: bool,
 ) -> Result<Vec<RMSResults>> {
+    let persist_string = if persist {
+        r#"
+CALL {
+  WITH txs, rms
+  REMOVE txs.test_rms_filtered
+  RETURN true as is_true
+}
+"#
+    } else {
+        ""
+    };
     let cypher_string = format!(
         r#"
 MATCH (from_user:SwapAccount)-[t:Swap]->(to_accepter:SwapAccount)
@@ -76,8 +90,12 @@ MATCH (from_user2:SwapAccount)-[other:Swap]->(to_accepter2:SwapAccount)
 WHERE datetime(other.filled_at) >= datetime(current_time) - duration({{hours: 6}})
   AND datetime(other.filled_at) < datetime(current_time)
   AND (from_user2 <> from_user OR from_user2 <> to_accepter OR to_accepter2 <> from_user OR to_accepter2 <> to_accepter)  // Exclude same from_user and to_accepter
-// WITH txs, other, sqrt(avg(other.price * other.price)) AS rms
-RETURN DISTINCT(elementId(txs)) AS id, txs.filled_at AS time, COUNT(other) AS matching_trades, sqrt(avg(other.price * other.price)) AS rms
+
+WITH txs, COUNT(other) as matching_trades, sqrt(avg(other.price * other.price)) AS rms
+
+{persist_string}
+
+RETURN DISTINCT(elementId(txs)) AS id, txs.filled_at AS time, matching_trades, rms
       "#
     );
     let cypher_query = neo4rs::query(&cypher_string);
