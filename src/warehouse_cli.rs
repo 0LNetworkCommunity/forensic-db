@@ -203,8 +203,10 @@ impl WarehouseCli {
                 AnalyticsSub::ExchangeRMS { commit } => {
                     info!("ExchangeRMS: {}", commit);
                     let pool = try_db_connection_pool(self).await?;
-                    let results =
-                        analytics::exchange_stats::query_rms_analytics(&pool, None).await?;
+                    let results = analytics::exchange_stats::query_rms_analytics_concurrent(
+                        &pool, None, None,
+                    )
+                    .await?;
                     println!("{:#}", json!(&results).to_string());
                 }
             },

@@ -8,24 +8,28 @@ use tokio::sync::Semaphore;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RMSResults {
-    id: u64,
-    time: String,
-    matching_trades: u64,
-    rms: f64,
+    pub id: String,
+    pub time: String,
+    pub matching_trades: u64,
+    pub rms: f64,
 }
 
-static BATCH_SIZE: u64 = 100;
+static DEFAULT_BATCH_SIZE: u64 = 100;
 
-pub async fn query_rms_analytics(pool: &Graph, threads: Option<usize>) -> Result<Vec<RMSResults>> {
+pub async fn query_rms_analytics_concurrent(
+    pool: &Graph,
+    threads: Option<usize>,
+    batch_size: Option<u64>,
+) -> Result<Vec<RMSResults>> {
     let threads = threads.unwrap_or(available_parallelism().unwrap().get());
 
     let n = query_trades_count(pool).await?;
 
     let mut batches = 1;
-    if n > BATCH_SIZE {
-        batches = (n / BATCH_SIZE) + 1
+    let batch_size = batch_size.unwrap_or(DEFAULT_BATCH_SIZE);
+    if n > batch_size {
+        batches = (n / batch_size) + 1
     };
-
 
     let semaphore = Arc::new(Semaphore::new(threads)); // Semaphore to limit concurrency
     let mut tasks = vec![];
@@ -37,7 +41,8 @@ pub async fn query_rms_analytics(pool: &Graph, threads: Option<usize>) -> Result
         let task = tokio::spawn(async move {
             let _permit = semaphore.acquire().await; // Acquire semaphore permit
             info!("PROGRESS: {batch_sequence}/{n}");
-            query_rms_analytics_chunk(&pool, batches).await // Perform the task
+            let skip_to = batch_sequence * batch_size;
+            query_rms_analytics_chunk(&pool, skip_to, batch_size).await // Perform the task
         });
 
         tasks.push(task);
@@ -57,21 +62,22 @@ pub async fn query_rms_analytics(pool: &Graph, threads: Option<usize>) -> Result
 // get rms analytics on transaction
 pub async fn query_rms_analytics_chunk(
     pool: &Graph,
-    batch_sequence: u64,
+    skip_to: u64,
+    limit: u64,
 ) -> Result<Vec<RMSResults>> {
     let cypher_string = format!(
         r#"
 MATCH (from_user:SwapAccount)-[t:Swap]->(to_accepter:SwapAccount)
 ORDER BY t.filled_at
-SKIP 100 * {batch_sequence} LIMIT 100
+SKIP {skip_to} LIMIT {limit}
 WITH DISTINCT t as txs, from_user, to_accepter, t.filled_at AS current_time
 
 MATCH (from_user2:SwapAccount)-[other:Swap]->(to_accepter2:SwapAccount)
-WHERE datetime(other.filled_at) >= datetime(current_time) - duration({{ hours: 1 }})
+WHERE datetime(other.filled_at) >= datetime(current_time) - duration({{hours: 6}})
   AND datetime(other.filled_at) < datetime(current_time)
   AND (from_user2 <> from_user OR from_user2 <> to_accepter OR to_accepter2 <> from_user OR to_accepter2 <> to_accepter)  // Exclude same from_user and to_accepter
 // WITH txs, other, sqrt(avg(other.price * other.price)) AS rms
-RETURN id(txs) AS id, txs.filled_at AS time, COUNT(other) AS matching_trades, sqrt(avg(other.price * other.price)) AS rms
+RETURN DISTINCT(elementId(txs)) AS id, txs.filled_at AS time, COUNT(other) AS matching_trades, sqrt(avg(other.price * other.price)) AS rms
       "#
     );
     let cypher_query = neo4rs::query(&cypher_string);
