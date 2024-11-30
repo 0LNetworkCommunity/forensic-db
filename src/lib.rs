@@ -1,3 +1,4 @@
+pub mod analytics;
 pub mod batch_tx_type;
 pub mod cypher_templates;
 pub mod enrich_exchange_onboarding;
