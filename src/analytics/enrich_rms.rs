@@ -15,6 +15,7 @@ pub struct Swap {
     pub rms_24hour: f64,
     pub price_vs_rms_hour: f64,
     pub price_vs_rms_24hour: f64,
+    pub took_best_price: Option<bool>, // New field to indicate if it took the best price
 }
 
 fn calculate_rms(data: &[f64]) -> f64 {
@@ -94,6 +95,37 @@ pub fn process_swaps(swaps: &mut [Swap]) {
     }
 }
 
+pub fn process_swaps_with_best_price(swaps: &mut [Swap]) {
+    swaps.sort_by_key(|swap| swap.filled_at); // Sort by filled_at
+
+    for i in 0..swaps.len() {
+        let current_swap = &swaps[i];
+
+        // Filter for open trades
+        let open_trades = swaps
+            .iter()
+            .filter(|&other_swap| {
+                other_swap.filled_at > current_swap.filled_at
+                    && other_swap.created_at <= current_swap.filled_at
+            })
+            .collect::<Vec<_>>();
+
+        // Determine if the current swap took the best price
+        let best_price_condition = match current_swap.order_type.as_str() {
+            "Buy" => open_trades
+                .iter()
+                .all(|other_swap| other_swap.price >= current_swap.price),
+            "Sell" => open_trades
+                .iter()
+                .all(|other_swap| other_swap.price <= current_swap.price),
+            _ => true, // Default to true for unknown order types
+        };
+
+        // Update the swap with the best price flag
+        swaps[i].took_best_price = Some(best_price_condition);
+    }
+}
+
 #[test]
 fn test_rms_pipeline() {
     let mut swaps = vec![
@@ -115,6 +147,7 @@ fn test_rms_pipeline() {
             rms_24hour: 0.0,
             price_vs_rms_hour: 0.0,
             price_vs_rms_24hour: 0.0,
+            took_best_price: None,
         },
         // less than 12 hours later next trade 5/6/2024 8AM
         Swap {
@@ -134,6 +167,7 @@ fn test_rms_pipeline() {
             rms_24hour: 0.0,
             price_vs_rms_hour: 0.0,
             price_vs_rms_24hour: 0.0,
+            took_best_price: None,
         },
         // less than one hour later
         Swap {
@@ -153,6 +187,7 @@ fn test_rms_pipeline() {
             rms_24hour: 0.0,
             price_vs_rms_hour: 0.0,
             price_vs_rms_24hour: 0.0,
+            took_best_price: None,
         },
         // same time as previous but different traders
         Swap {
@@ -172,6 +207,7 @@ fn test_rms_pipeline() {
             rms_24hour: 0.0,
             price_vs_rms_hour: 0.0,
             price_vs_rms_24hour: 0.0,
+            took_best_price: None,
         },
     ];
 
@@ -181,7 +217,7 @@ fn test_rms_pipeline() {
     //     println!("{:?}", swap);
     // }
 
-    let s0 = swaps.get(0).unwrap();
+    let s0 = swaps.first().unwrap();
     assert!(s0.rms_hour == 0.0);
     assert!(s0.rms_24hour == 0.0);
     let s1 = swaps.get(1).unwrap();
@@ -193,4 +229,8 @@ fn test_rms_pipeline() {
     let s3 = swaps.get(3).unwrap();
     assert!(s3.rms_hour == 4.0);
     assert!((s3.rms_24hour > 57.0) && (s3.rms_24hour < 58.0));
+
+
+    process_swaps_with_best_price(&mut swaps);
+    dbg!(&swaps);
 }
