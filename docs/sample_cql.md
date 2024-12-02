@@ -1,0 +1,28 @@
+
+
+# Cypher query to map shill trades
+
+```
+//Top 100 shill pairs
+MATCH (from:SwapAccount)-[r:Swap {shill_bid: true}]->(to:SwapAccount)
+WHERE r.price_vs_rms_hour > 1
+
+// combine from and to as users
+WITH DISTINCT(collect(DISTINCT from) + collect(DISTINCT to)) AS all_users, r
+UNWIND all_users AS user
+
+WITH user, COUNT(r) AS shill_bid_count
+// sorts by user with the highest count of relations with shill_bid
+ORDER BY shill_bid_count DESC
+// get top 100
+LIMIT 100
+
+// find all paths of owners, to tx, to onramp account
+// don't need to find all paths, just the shortest one
+MATCH p=SHORTEST 1 ()-[o:Owns]->(:Account)-[t:Tx]-()-[:OnRamp]->(user)
+// use regex to exclude certain functions
+WHERE NOT t.function =~ '(?i).*vouch.*'
+
+// show the paths
+return p
+```
