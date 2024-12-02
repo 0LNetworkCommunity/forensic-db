@@ -6,6 +6,7 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use libra_forensic_db::{
+    analytics::enrich_rms,
     extract_exchange_orders, load_exchange_orders,
     neo4j_init::{get_neo4j_localhost_pool, maybe_create_indexes},
     schema_exchange_orders::ExchangeOrder,
@@ -17,6 +18,51 @@ fn open_parse_file() {
     let path = env!("CARGO_MANIFEST_DIR");
     let buf = PathBuf::from(path).join("tests/fixtures/savedOlOrders2.json");
     let orders = extract_exchange_orders::read_orders_from_file(buf).unwrap();
+    assert!(orders.len() == 25450);
+}
+
+#[test]
+fn test_enrich_rms() {
+    let path = env!("CARGO_MANIFEST_DIR");
+    let buf = PathBuf::from(path).join("tests/fixtures/savedOlOrders2.json");
+    let mut orders = extract_exchange_orders::read_orders_from_file(buf).unwrap();
+    assert!(orders.len() == 25450);
+
+    enrich_rms::process_swaps(&mut orders);
+
+    let count_above_100_pct = orders.iter().fold(0, |mut acc, el| {
+        if el.price_vs_rms_24hour > 2.0 {
+            acc += 1;
+        }
+        acc
+    });
+
+    assert!(count_above_100_pct == 96);
+
+    assert!(orders.len() == 25450);
+}
+
+#[test]
+fn test_enrich_best_trade() {
+    let path = env!("CARGO_MANIFEST_DIR");
+    let buf = PathBuf::from(path).join("tests/fixtures/savedOlOrders2.json");
+    let mut orders = extract_exchange_orders::read_orders_from_file(buf).unwrap();
+    assert!(orders.len() == 25450);
+
+    enrich_rms::process_swaps_with_best_price(&mut orders);
+
+    let count_shill = orders.iter().fold(0, |mut acc, el| {
+        if let Some(is_shill) = el.shill_bid {
+            if is_shill {
+                acc += 1
+            }
+        }
+        acc
+    });
+
+    dbg!(&count_shill);
+
+    assert!(count_shill == 13723);
     assert!(orders.len() == 25450);
 }
 

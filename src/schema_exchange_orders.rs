@@ -16,6 +16,16 @@ pub struct ExchangeOrder {
     pub created_at: DateTime<Utc>,
     pub filled_at: DateTime<Utc>,
     pub accepter: u32,
+    #[serde(skip_deserializing)]
+    pub rms_hour: f64,
+    #[serde(skip_deserializing)]
+    pub rms_24hour: f64,
+    #[serde(skip_deserializing)]
+    pub price_vs_rms_hour: f64,
+    #[serde(skip_deserializing)]
+    pub price_vs_rms_24hour: f64,
+    #[serde(skip_deserializing)]
+    pub shill_bid: Option<bool>, // New field to indicate if it took the best price
 }
 
 impl Default for ExchangeOrder {
@@ -28,6 +38,11 @@ impl Default for ExchangeOrder {
             created_at: DateTime::<Utc>::from_timestamp_nanos(0),
             filled_at: DateTime::<Utc>::from_timestamp_nanos(0),
             accepter: 1,
+            rms_hour: 0.0,
+            rms_24hour: 0.0,
+            price_vs_rms_hour: 0.0,
+            price_vs_rms_24hour: 0.0,
+            shill_bid: None,
         }
     }
 }

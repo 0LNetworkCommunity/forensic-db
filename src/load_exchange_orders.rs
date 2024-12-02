@@ -4,7 +4,9 @@ use anyhow::{Context, Result};
 use log::{error, info, warn};
 use neo4rs::{query, Graph};
 
-use crate::{extract_exchange_orders, queue, schema_exchange_orders::ExchangeOrder};
+use crate::{
+    analytics::enrich_rms, extract_exchange_orders, queue, schema_exchange_orders::ExchangeOrder,
+};
 
 pub async fn swap_batch(
     txs: &[ExchangeOrder],
@@ -81,6 +83,11 @@ pub async fn impl_batch_tx_insert(pool: &Graph, batch_txs: &[ExchangeOrder]) -> 
 }
 
 pub async fn load_from_json(path: &Path, pool: &Graph, batch_size: usize) -> Result<(u64, u64)> {
-    let orders = extract_exchange_orders::read_orders_from_file(path)?;
+    let mut orders = extract_exchange_orders::read_orders_from_file(path)?;
+    // add RMS stats to each order
+    enrich_rms::process_swaps(&mut orders);
+    // find likely shill bids
+    enrich_rms::process_swaps_with_best_price(&mut orders);
+
     swap_batch(&orders, pool, batch_size).await
 }
