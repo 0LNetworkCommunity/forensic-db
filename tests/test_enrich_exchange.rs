@@ -49,7 +49,7 @@ fn test_enrich_best_trade() {
     let mut orders = extract_exchange_orders::read_orders_from_file(buf).unwrap();
     assert!(orders.len() == 25450);
 
-    enrich_rms::process_swaps_with_best_price(&mut orders);
+    enrich_rms::process_sell_order_shill(&mut orders);
 
     let count_shill = orders.iter().fold(0, |mut acc, el| {
         if let Some(is_shill) = el.shill_bid {

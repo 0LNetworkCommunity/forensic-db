@@ -87,7 +87,8 @@ pub async fn load_from_json(path: &Path, pool: &Graph, batch_size: usize) -> Res
     // add RMS stats to each order
     enrich_rms::process_swaps(&mut orders);
     // find likely shill bids
-    enrich_rms::process_swaps_with_best_price(&mut orders);
+    enrich_rms::process_sell_order_shill(&mut orders);
+    enrich_rms::process_buy_order_shill(&mut orders);
 
     swap_batch(&orders, pool, batch_size).await
 }

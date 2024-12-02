@@ -80,11 +80,13 @@ pub fn process_swaps(swaps: &mut [ExchangeOrder]) {
     }
 }
 
-pub fn process_swaps_with_best_price(swaps: &mut [ExchangeOrder]) {
+pub fn process_sell_order_shill(swaps: &mut [ExchangeOrder]) {
     swaps.sort_by_key(|swap| swap.filled_at); // Sort by filled_at
 
     for i in 0..swaps.len() {
         let current_swap = &swaps[i];
+        // TODO: move this to a filter on the enclosing scope
+        if current_swap.shill_bid.is_some() { continue };
 
         // Filter for open trades
         let open_orders = swaps
@@ -98,22 +100,6 @@ pub fn process_swaps_with_best_price(swaps: &mut [ExchangeOrder]) {
         // Determine if the current swap took the best price
         let is_shill_bid = match current_swap.order_type.as_str() {
             // Signs of shill trades.
-            // For those offering to BUY coins, as the tx.user (offerer)
-            // An honest and rational actor would not create a buy order
-            // higher than other SELL offers which have not been filled.
-            // The shill bidder who is colluding will create a BUY order at a higher price than other SELL orders which currently exist.
-            // For the accepter:
-            // I would only fill a lower price if the amount I have to sell is insufficient for higher prices.'
-            // "Buy" => open_orders.iter().any(|other_swap| {
-            //     if other_swap.order_type == *"Sell" {
-            //         // this is not a rational trade if there are
-            //         // SELL offers of the same amount (or smaller)
-            //         // at a price equal or lower.
-            //         return other_swap.price <= current_swap.price
-            //             && other_swap.amount <= current_swap.amount;
-            //     }
-            //     false
-            // }),
             // For those offering to SELL coins, as the tx.user (offerer)
             // I should offer to sell near the current clearing price.
             // If I'm making shill bids, I'm creating trades above the current clearing price. An honest actor wouldn't expect those to get filled immediately.
@@ -128,7 +114,52 @@ pub fn process_swaps_with_best_price(swaps: &mut [ExchangeOrder]) {
                   // filled dishonestly.
                   other_swap.price <= current_swap.price &&
                   other_swap.amount <= current_swap.amount),
-            _ => false, // Default to true for unknown order types
+            _ => false,
+        };
+
+        // Update the swap with the best price flag
+        swaps[i].shill_bid = Some(is_shill_bid);
+    }
+}
+
+pub fn process_buy_order_shill(swaps: &mut [ExchangeOrder]) {
+    // NEED to sort by created_at to identify shill created BUY orders
+    swaps.sort_by_key(|swap| swap.created_at);
+
+    for i in 0..swaps.len() {
+        let current_swap = &swaps[i];
+
+        // TODO: move this to a filter on the enclosing scope
+        if current_swap.shill_bid.is_some() { continue };
+
+        // Filter for open trades
+        let open_orders = swaps
+            .iter()
+            .filter(|&other_swap| {
+                other_swap.filled_at > current_swap.created_at
+                    && other_swap.created_at <= current_swap.created_at
+            })
+            .collect::<Vec<_>>();
+
+        // Determine if the current swap took the best price
+        let is_shill_bid = match current_swap.order_type.as_str() {
+            // Signs of shill trades.
+            // For those offering to BUY coins, as the tx.user (offerer)
+            // An honest and rational actor would not create a buy order
+            // higher than other SELL offers which have not been filled.
+            // The shill bidder who is colluding will create a BUY order at a higher price than other SELL orders which currently exist.
+
+            "Buy" => open_orders.iter().any(|other_swap| {
+                if other_swap.order_type == *"Sell" {
+                    // this is not a rational trade if there are
+                    // SELL offers of the same amount (or smaller)
+                    // at a price equal or lower.
+                    return other_swap.price <= current_swap.price
+                        && other_swap.amount <= current_swap.amount;
+                }
+                false
+            }),
+            _ => false,
         };
 
         // Update the swap with the best price flag
@@ -233,6 +264,6 @@ fn test_rms_pipeline() {
     assert!(s3.rms_hour == 4.0);
     assert!((s3.rms_24hour > 57.0) && (s3.rms_24hour < 58.0));
 
-    process_swaps_with_best_price(&mut swaps);
+    process_sell_order_shill(&mut swaps);
     dbg!(&swaps);
 }
