@@ -28,7 +28,7 @@ fn test_enrich_rms() {
     let mut orders = extract_exchange_orders::read_orders_from_file(buf).unwrap();
     assert!(orders.len() == 25450);
 
-    enrich_rms::process_swaps(&mut orders);
+    enrich_rms::include_rms_stats(&mut orders);
 
     let count_above_100_pct = orders.iter().fold(0, |mut acc, el| {
         if el.price_vs_rms_24hour > 2.0 {

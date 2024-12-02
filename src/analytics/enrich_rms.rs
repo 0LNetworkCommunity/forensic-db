@@ -15,7 +15,7 @@ fn calculate_rms(data: &[f64]) -> f64 {
 }
 
 /// enrich swap struct with RMS data
-pub fn process_swaps(swaps: &mut [ExchangeOrder]) {
+pub fn include_rms_stats(swaps: &mut [ExchangeOrder]) {
     swaps.sort_by_key(|swap| swap.filled_at);
 
     let mut window_1hour: VecDeque<ExchangeOrder> = VecDeque::new();
@@ -249,7 +249,7 @@ fn test_rms_pipeline() {
         },
     ];
 
-    process_swaps(&mut swaps);
+    include_rms_stats(&mut swaps);
 
     let s0 = swaps.first().unwrap();
     assert!(s0.rms_hour == 0.0);
