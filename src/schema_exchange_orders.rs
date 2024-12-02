@@ -52,7 +52,7 @@ impl ExchangeOrder {
     /// Note original data was in an RFC rfc3339 with Z for UTC, Cypher seems to prefer with offsets +00000
     pub fn to_cypher_object_template(&self) -> String {
         format!(
-            r#"{{user: {}, accepter: {}, order_type: "{}", amount: {}, price:{}, created_at: datetime("{}"), created_at_ts: {}, filled_at: datetime("{}"), filled_at_ts: {} }}"#,
+            r#"{{user: {}, accepter: {}, order_type: "{}", amount: {}, price:{}, created_at: datetime("{}"), created_at_ts: {}, filled_at: datetime("{}"), filled_at_ts: {}, shill_bid: {}, rms_hour: {}, rms_24hour: {}, price_vs_rms_hour: {}, price_vs_rms_24hour: {} }}"#,
             self.user,
             self.accepter,
             self.order_type,
@@ -61,7 +61,12 @@ impl ExchangeOrder {
             self.created_at.to_rfc3339(),
             self.created_at.timestamp_micros(),
             self.filled_at.to_rfc3339(),
-            self.filled_at.timestamp_micros()
+            self.filled_at.timestamp_micros(),
+            self.shill_bid.unwrap_or(false),
+            self.rms_hour,
+            self.rms_24hour,
+            self.price_vs_rms_hour,
+            self.price_vs_rms_24hour,
         )
     }
 
@@ -91,7 +96,12 @@ impl ExchangeOrder {
     created_at: tx.created_at,
     created_at_ts: tx.created_at_ts,
     filled_at: tx.filled_at,
-    filled_at_ts: tx.filled_at_ts
+    filled_at_ts: tx.filled_at_ts,
+    shill_bid: tx.shill_bid,
+    rms_hour: tx.rms_hour,
+    rms_24hour: tx.rms_24hour,
+    price_vs_rms_hour: tx.price_vs_rms_hour,
+    price_vs_rms_24hour: tx.price_vs_rms_24hour
   }}]->(taker)
 
   ON CREATE SET rel.created = true

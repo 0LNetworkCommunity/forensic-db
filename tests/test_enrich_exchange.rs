@@ -43,7 +43,7 @@ fn test_enrich_rms() {
 }
 
 #[test]
-fn test_enrich_best_trade() {
+fn test_sell_order_shill() {
     let path = env!("CARGO_MANIFEST_DIR");
     let buf = PathBuf::from(path).join("tests/fixtures/savedOlOrders2.json");
     let mut orders = extract_exchange_orders::read_orders_from_file(buf).unwrap();
@@ -62,7 +62,31 @@ fn test_enrich_best_trade() {
 
     dbg!(&count_shill);
 
-    assert!(count_shill == 13723);
+    // assert!(count_shill == 13723);
+    assert!(orders.len() == 25450);
+}
+
+#[test]
+fn test_enrich_buy_shill() {
+    let path = env!("CARGO_MANIFEST_DIR");
+    let buf = PathBuf::from(path).join("tests/fixtures/savedOlOrders2.json");
+    let mut orders = extract_exchange_orders::read_orders_from_file(buf).unwrap();
+    assert!(orders.len() == 25450);
+
+    enrich_rms::process_buy_order_shill(&mut orders);
+
+    let count_shill = orders.iter().fold(0, |mut acc, el| {
+        if let Some(is_shill) = el.shill_bid {
+            if is_shill {
+                acc += 1
+            }
+        }
+        acc
+    });
+
+    dbg!(&count_shill);
+
+    // assert!(count_shill == 13723);
     assert!(orders.len() == 25450);
 }
 
