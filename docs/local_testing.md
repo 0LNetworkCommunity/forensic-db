@@ -15,15 +15,6 @@ Import the sample exchange orders
 ```
 cargo r enrich-exchange --exchange-json ./tests/fixtures/savedOlOrders2.json
 ```
-Try to run analytics
-
-```
-# try without updating data
-cargo r analytics exchange-rms
-
-# save the analysis to db
-cargo r analytics exchange-rms --persist
-```
 
 ## View graph
 
