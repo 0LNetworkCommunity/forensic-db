@@ -11,7 +11,7 @@ pub fn read_orders_from_file<P: AsRef<Path>>(path: P) -> Result<Vec<ExchangeOrde
     file.read_to_string(&mut json_data)?;
     let des = schema_exchange_orders::deserialize_orders(&json_data)?;
 
-    info!("Swap orders loaded: {}", des.len());
+    info!("swap orders extracted from file: {}", des.len());
 
     Ok(des)
 }

@@ -104,16 +104,16 @@ pub fn process_swaps_with_best_price(swaps: &mut [ExchangeOrder]) {
             // The shill bidder who is colluding will create a BUY order at a higher price than other SELL orders which currently exist.
             // For the accepter:
             // I would only fill a lower price if the amount I have to sell is insufficient for higher prices.'
-            "Buy" => open_orders.iter().any(|other_swap| {
-                if other_swap.order_type == *"Sell" {
-                    // this is not a rational trade if there are
-                    // SELL offers of the same amount (or smaller)
-                    // at a price equal or lower.
-                    return other_swap.price <= current_swap.price
-                        && other_swap.amount <= current_swap.amount;
-                }
-                false
-            }),
+            // "Buy" => open_orders.iter().any(|other_swap| {
+            //     if other_swap.order_type == *"Sell" {
+            //         // this is not a rational trade if there are
+            //         // SELL offers of the same amount (or smaller)
+            //         // at a price equal or lower.
+            //         return other_swap.price <= current_swap.price
+            //             && other_swap.amount <= current_swap.amount;
+            //     }
+            //     false
+            // }),
             // For those offering to SELL coins, as the tx.user (offerer)
             // I should offer to sell near the current clearing price.
             // If I'm making shill bids, I'm creating trades above the current clearing price. An honest actor wouldn't expect those to get filled immediately.

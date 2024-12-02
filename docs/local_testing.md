@@ -2,7 +2,7 @@
 # Local Testing
 
 ## From Neo4j Desktop
-Start a Neo4j instance. Choose a password `<password>`.Allow it to create the default database namespace `neo4j`.
+Start a Neo4j instance. Choose a password `<password>`. Allow it to create the default database namespace `neo4j`.
 
 ```
 export LIBRA_GRAPH_DB_URI='neo4j://localhost'
@@ -33,4 +33,4 @@ MATCH ()-[r:Swap]->()
 RETURN COUNT(DISTINCT(r))
 ```
 
-Shoudl return `25450`
+Should return `25450`
