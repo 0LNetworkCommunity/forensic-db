@@ -22,6 +22,8 @@ LIMIT 100
 MATCH p=SHORTEST 1 ()-[o:Owns]->(:Account)-[t:Tx]-()-[:OnRamp]->(user)
 // use regex to exclude certain functions
 WHERE NOT t.function =~ '(?i).*vouch.*'
+// or better
+/ WHERE NONE(r IN relationships(p) WHERE r.function IS NOT NULL AND r.function =~ '(?i).*vouch.*' )
 
 // show the paths
 return p
