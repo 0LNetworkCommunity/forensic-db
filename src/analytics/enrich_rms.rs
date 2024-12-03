@@ -86,7 +86,9 @@ pub fn process_sell_order_shill(swaps: &mut [ExchangeOrder]) {
     for i in 0..swaps.len() {
         let current_swap = &swaps[i];
         // TODO: move this to a filter on the enclosing scope
-        if current_swap.shill_bid.is_some() { continue };
+        if current_swap.shill_bid.is_some() {
+            continue;
+        };
 
         // Filter for open trades
         let open_orders = swaps
@@ -130,7 +132,9 @@ pub fn process_buy_order_shill(swaps: &mut [ExchangeOrder]) {
         let current_swap = &swaps[i];
 
         // TODO: move this to a filter on the enclosing scope
-        if current_swap.shill_bid.is_some() { continue };
+        if current_swap.shill_bid.is_some() {
+            continue;
+        };
 
         // Filter for open trades
         let open_orders = swaps
@@ -148,7 +152,6 @@ pub fn process_buy_order_shill(swaps: &mut [ExchangeOrder]) {
             // An honest and rational actor would not create a buy order
             // higher than other SELL offers which have not been filled.
             // The shill bidder who is colluding will create a BUY order at a higher price than other SELL orders which currently exist.
-
             "Buy" => open_orders.iter().any(|other_swap| {
                 if other_swap.order_type == *"Sell" {
                     // this is not a rational trade if there are

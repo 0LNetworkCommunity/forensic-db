@@ -28,3 +28,22 @@ WHERE NOT t.function =~ '(?i).*vouch.*'
 // show the paths
 return p
 ```
+
+
+# Find all known users and their exchange address
+```
+WITH ['0xf57d3968d0bfd5b3120fda88f34310c70bd72033f77422f4407fbbef7c24557a'] AS exclude
+
+MATCH p = SHORTEST 1 (o:Owner)-[r *..3]->(:SwapAccount)
+WHERE NONE(
+  r IN relationships(p)
+    WHERE r.function IS NOT NULL
+    AND r.function =~ '(?i).*vouch.*'
+  )
+  AND NONE(
+    n IN nodes(p)
+    WHERE n.address IS NOT NULL
+    AND n.address IN exclude
+  )
+RETURN p
+```
