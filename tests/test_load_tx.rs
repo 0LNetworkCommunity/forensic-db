@@ -18,7 +18,7 @@ use support::neo4j_testcontainer::start_neo4j_container;
 async fn test_tx_batch() -> anyhow::Result<()> {
     libra_forensic_db::log_setup();
     let archive_path = support::fixtures::v6_tx_manifest_fixtures_path();
-    let (txs, events) = extract_current_transactions(&archive_path).await?;
+    let (txs, _events) = extract_current_transactions(&archive_path).await?;
     assert!(txs.len() == 27);
 
     let c = start_neo4j_container();
