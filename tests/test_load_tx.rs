@@ -19,9 +19,7 @@ async fn test_tx_batch() -> anyhow::Result<()> {
     libra_forensic_db::log_setup();
     let archive_path = support::fixtures::v6_tx_manifest_fixtures_path();
     let (txs, events) = extract_current_transactions(&archive_path).await?;
-    dbg!(&txs.len());
-    // assert!(txs.len() == 705);
-    // assert!(events.len() == 52);
+    assert!(txs.len() == 27);
 
     let c = start_neo4j_container();
     let port = c.get_host_port_ipv4(7687);
@@ -35,11 +33,12 @@ async fn test_tx_batch() -> anyhow::Result<()> {
     // load in batches
     let archive_id = archive_path.file_name().unwrap().to_str().unwrap();
     let res = tx_batch(&txs, &graph, 100, archive_id).await?;
-    dbg!(&res);
-    // assert!(res.created_accounts == 60);
-    // assert!(res.modified_accounts == 228);
-    // assert!(res.unchanged_accounts == 0);
-    // assert!(res.created_tx == txs.len() as u64);
+
+    assert!(res.unique_accounts == 25);
+    assert!(res.created_accounts == 25);
+    assert!(res.modified_accounts == 0);
+    assert!(res.unchanged_accounts == 0);
+    assert!(res.created_tx == txs.len() as u64);
 
     let cypher_query = query(
         "MATCH ()-[r:Tx]->()
@@ -52,13 +51,13 @@ async fn test_tx_batch() -> anyhow::Result<()> {
     // Fetch the first row only
     let row = result.next().await?.unwrap();
     let total_tx_count: i64 = row.get("total_tx_count").unwrap();
-    // assert!(total_tx_count == txs.len() as i64);
+    assert!(total_tx_count == txs.len() as i64);
 
     // check there are transaction records with function args.
     let cypher_query = query(
         "MATCH ()-[r:Tx]->()
-        WHERE r.args IS NOT NULL
-        RETURN count(r) AS total_tx_count",
+        WHERE r.V7_OlAccountTransfer_amount IS NOT NULL
+        RETURN COUNT(r) AS total_tx_count",
     );
 
     // Execute the query
@@ -67,8 +66,8 @@ async fn test_tx_batch() -> anyhow::Result<()> {
     // Fetch the first row only
     let row = result.next().await?.unwrap();
     let total_tx_count: i64 = row.get("total_tx_count").unwrap();
-    dbg!(&total_tx_count);
-    // assert!(total_tx_count == txs.len() as i64);
+
+    assert!(total_tx_count == 24);
 
     Ok(())
 }

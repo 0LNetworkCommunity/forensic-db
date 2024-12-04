@@ -92,7 +92,26 @@ async fn test_rescue_v5_parse_set_wallet_tx() -> anyhow::Result<()> {
         .await
         .expect("could start index");
 
-    let _res = tx_batch(&vec_tx, &pool, 100, "test-set-wallet").await?;
+    let res = tx_batch(&vec_tx, &pool, 100, "test-set-wallet").await?;
+    assert!(res.created_tx > 0);
+    dbg!(&res);
+
+    // check there are transaction records with function args.
+    let cypher_query = neo4rs::query(
+        "MATCH ()-[r:Tx]->()
+        // WHERE r.args IS NOT NULL
+        RETURN r
+        LIMIT 1
+        ",
+    );
+
+    // Execute the query
+    let mut result = pool.execute(cypher_query).await?;
+
+    // Fetch the first row only
+    let row = result.next().await?;
+    // let total_tx_count: i64 = row.get("total_tx_count").unwrap();
+    dbg!(&row);
 
     Ok(())
 }
