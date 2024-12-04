@@ -1,5 +1,6 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
+use log::trace;
 use neo4rs::{Graph, Query};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -131,14 +132,15 @@ impl BalanceTracker {
             r#"
             UNWIND {map} AS account
             MERGE (sa:SwapAccount {{swap_id: account.swap_id}})
-            MERGE (ul:UserLedger {{date: account.date}})
+            MERGE (ul:UserLedger {{date: datetime(account.date)}})
             SET ul.balance = account.balance,
                 ul.funding = account.funding,
                 ul.inflows = account.inflows,
                 ul.outflows = account.outflows,
                 ul.user_flows = account.user_flows,
                 ul.accepter_flows = account.accepter_flows
-            MERGE (sa)-[r:Daily {{date: account.date}}]->(ul)
+            MERGE (sa)-[r:Daily]->(ul)
+            SET r.date = datetime(account.date)
             RETURN COUNT(r) as merged_relations
             "#,
         )
@@ -187,8 +189,8 @@ pub async fn submit_ledger(balances: &BalanceTracker, pool: &Graph) -> Result<u6
         let mut result = pool.execute(query).await?;
 
         while let Some(r) = result.next().await? {
-            dbg!(&r);
             if let Ok(i) = r.get::<u64>("merged_relations") {
+                trace!("merged ledger in tx: {i}");
                 merged_relations += i;
             };
         }
