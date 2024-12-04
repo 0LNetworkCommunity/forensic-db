@@ -61,9 +61,12 @@ impl BalanceTracker {
     pub fn process_transaction(&mut self, order: &ExchangeOrder) {
         let date = order.created_at;
         let (buyer_id, seller_id, amount) = match order.order_type.as_str() {
-            "BUY" => (order.user, order.accepter, order.amount * order.price),
-            "SELL" => (order.accepter, order.user, order.amount * order.price),
-            _ => return,
+            "Buy" => (order.user, order.accepter, order.amount * order.price),
+            "Sell" => (order.accepter, order.user, order.amount * order.price),
+            _ => {
+              println!("ERROR: not a valid Buy/Sell order, {:?}", &order);
+              return
+            },
         };
 
         self.update_balance_and_flows(seller_id, date, -amount, false);
@@ -170,6 +173,7 @@ pub fn replay_transactions(orders: &mut [ExchangeOrder]) -> BalanceTracker {
     let mut tracker = BalanceTracker::new();
     let sorted_orders = orders;
     sorted_orders.sort_by_key(|order| order.created_at);
+    dbg!(&sorted_orders.len());
     for order in sorted_orders {
         tracker.process_transaction(order);
     }
@@ -180,6 +184,7 @@ pub fn replay_transactions(orders: &mut [ExchangeOrder]) -> BalanceTracker {
 pub async fn submit_ledger(balances: &BalanceTracker, pool: &Graph) -> Result<()> {
     let query_literal = balances.generate_cypher_query();
     println!("Cypher Query:\n{}", &query_literal);
+    dbg!(&balances.accounts.len());
 
     for (id, acc) in balances.accounts.iter() {
         let data = acc.to_cypher_map(*id);

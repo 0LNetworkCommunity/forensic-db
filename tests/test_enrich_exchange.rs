@@ -6,7 +6,7 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use libra_forensic_db::{
-    analytics::enrich_rms,
+    analytics::{enrich_account_funding, enrich_rms},
     extract_exchange_orders, load_exchange_orders,
     neo4j_init::{get_neo4j_localhost_pool, maybe_create_indexes},
     schema_exchange_orders::ExchangeOrder,
@@ -64,6 +64,17 @@ fn test_sell_order_shill() {
 
     // assert!(count_shill == 13723);
     assert!(orders.len() == 25450);
+}
+
+#[test]
+fn test_enrich_account_funding() {
+    let path = env!("CARGO_MANIFEST_DIR");
+    let buf = PathBuf::from(path).join("tests/fixtures/savedOlOrders2.json");
+    let mut orders = extract_exchange_orders::read_orders_from_file(buf).unwrap();
+
+    let balance = enrich_account_funding::replay_transactions(&mut orders);
+
+    dbg!(balance.accounts.len());
 }
 
 #[test]
