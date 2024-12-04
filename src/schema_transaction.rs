@@ -6,8 +6,12 @@ use diem_types::account_config::{DepositEvent, WithdrawEvent};
 use libra_backwards_compatibility::sdk::{
     v5_0_0_genesis_transaction_script_builder::ScriptFunctionCall as ScriptFunctionCallGenesis,
     v5_2_0_transaction_script_builder::ScriptFunctionCall as ScriptFunctionCallV520,
-    v7_libra_framework_sdk_builder::EntryFunctionCall,
+    v6_libra_framework_sdk_builder::EntryFunctionCall as V6EntryFunctionCall,
+    v7_libra_framework_sdk_builder::EntryFunctionCall as V7EntryFunctionCall,
 };
+// TODO:
+// use libra_cached_packages::libra_stdlib::EntryFunctionCall as CurrentVersionEntryFunctionCall;
+
 use libra_types::{exports::AccountAddress, move_resource::coin_register_event::CoinRegisterEvent};
 use serde::{Deserialize, Serialize};
 
@@ -66,9 +70,10 @@ pub enum UserEventTypes {
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
 pub enum EntryFunctionArgs {
-    V7(EntryFunctionCall),
     // TODO:
-    // V6(V6EntryFunctionCall),
+    // Current(CurrentVersionEntryFunctionCall),
+    V7(V7EntryFunctionCall),
+    V6(V6EntryFunctionCall),
     V5(ScriptFunctionCallGenesis),
     V520(ScriptFunctionCallV520),
 }

@@ -1,10 +1,7 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
-use log::info;
+
 use serde::{Deserialize, Deserializer};
-use std::fs::File;
-use std::io::Read;
-use std::path::Path;
 
 #[derive(Clone, Debug, Deserialize)]
 #[allow(dead_code)]
@@ -19,6 +16,16 @@ pub struct ExchangeOrder {
     pub created_at: DateTime<Utc>,
     pub filled_at: DateTime<Utc>,
     pub accepter: u32,
+    #[serde(skip_deserializing)]
+    pub rms_hour: f64,
+    #[serde(skip_deserializing)]
+    pub rms_24hour: f64,
+    #[serde(skip_deserializing)]
+    pub price_vs_rms_hour: f64,
+    #[serde(skip_deserializing)]
+    pub price_vs_rms_24hour: f64,
+    #[serde(skip_deserializing)]
+    pub shill_bid: Option<bool>, // New field to indicate if it took the best price
 }
 
 impl Default for ExchangeOrder {
@@ -31,6 +38,11 @@ impl Default for ExchangeOrder {
             created_at: DateTime::<Utc>::from_timestamp_nanos(0),
             filled_at: DateTime::<Utc>::from_timestamp_nanos(0),
             accepter: 1,
+            rms_hour: 0.0,
+            rms_24hour: 0.0,
+            price_vs_rms_hour: 0.0,
+            price_vs_rms_24hour: 0.0,
+            shill_bid: None,
         }
     }
 }
@@ -40,7 +52,7 @@ impl ExchangeOrder {
     /// Note original data was in an RFC rfc3339 with Z for UTC, Cypher seems to prefer with offsets +00000
     pub fn to_cypher_object_template(&self) -> String {
         format!(
-            r#"{{user: {}, accepter: {}, order_type: "{}", amount: {}, price:{}, created_at: datetime("{}"), created_at_ts: {}, filled_at: datetime("{}"), filled_at_ts: {} }}"#,
+            r#"{{user: {}, accepter: {}, order_type: "{}", amount: {}, price:{}, created_at: datetime("{}"), created_at_ts: {}, filled_at: datetime("{}"), filled_at_ts: {}, shill_bid: {}, rms_hour: {}, rms_24hour: {}, price_vs_rms_hour: {}, price_vs_rms_24hour: {} }}"#,
             self.user,
             self.accepter,
             self.order_type,
@@ -49,7 +61,12 @@ impl ExchangeOrder {
             self.created_at.to_rfc3339(),
             self.created_at.timestamp_micros(),
             self.filled_at.to_rfc3339(),
-            self.filled_at.timestamp_micros()
+            self.filled_at.timestamp_micros(),
+            self.shill_bid.unwrap_or(false),
+            self.rms_hour,
+            self.rms_24hour,
+            self.price_vs_rms_hour,
+            self.price_vs_rms_24hour,
         )
     }
 
@@ -79,7 +96,12 @@ impl ExchangeOrder {
     created_at: tx.created_at,
     created_at_ts: tx.created_at_ts,
     filled_at: tx.filled_at,
-    filled_at_ts: tx.filled_at_ts
+    filled_at_ts: tx.filled_at_ts,
+    shill_bid: tx.shill_bid,
+    rms_hour: tx.rms_hour,
+    rms_24hour: tx.rms_24hour,
+    price_vs_rms_hour: tx.price_vs_rms_hour,
+    price_vs_rms_24hour: tx.price_vs_rms_24hour
   }}]->(taker)
 
   ON CREATE SET rel.created = true
@@ -102,20 +124,9 @@ where
     s.parse::<f64>().map_err(serde::de::Error::custom)
 }
 
-fn deserialize_orders(json_data: &str) -> Result<Vec<ExchangeOrder>> {
+pub fn deserialize_orders(json_data: &str) -> Result<Vec<ExchangeOrder>> {
     let orders: Vec<ExchangeOrder> = serde_json::from_str(json_data)?;
     Ok(orders)
-}
-
-pub fn read_orders_from_file<P: AsRef<Path>>(path: P) -> Result<Vec<ExchangeOrder>> {
-    let mut file = File::open(path)?;
-    let mut json_data = String::new();
-    file.read_to_string(&mut json_data)?;
-    let des = deserialize_orders(&json_data)?;
-
-    info!("Swap orders loaded: {}", des.len());
-
-    Ok(des)
 }
 
 #[test]

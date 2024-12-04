@@ -1,7 +1,10 @@
+pub mod analytics;
 pub mod batch_tx_type;
 pub mod cypher_templates;
+pub mod decode_entry_function;
 pub mod enrich_exchange_onboarding;
 pub mod enrich_whitepages;
+pub mod extract_exchange_orders;
 pub mod extract_snapshot;
 pub mod extract_transactions;
 pub mod json_rescue_v5_extract;

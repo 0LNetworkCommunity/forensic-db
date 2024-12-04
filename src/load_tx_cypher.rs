@@ -121,6 +121,7 @@ pub async fn impl_batch_tx_insert(
         .context("no unchanged_accounts field")?;
 
     let cypher_string = write_batch_tx_string(&list_str);
+
     // Execute the query
     let cypher_query = query(&cypher_string);
     let mut res = pool.execute(cypher_query).await.context(format!(

@@ -32,6 +32,9 @@ pub static INDEX_TX_FUNCTION: &str =
 pub static INDEX_SWAP_ID: &str =
     "CREATE INDEX swap_account_id IF NOT EXISTS FOR (n:SwapAccount) ON (n.swap_id)";
 
+pub static INDEX_SWAP_TIME: &str =
+    "CREATE INDEX swap_time IF NOT EXISTS FOR ()-[r:Swap]-() ON (r.filled_at)";
+
 /// get the testing neo4j connection
 pub async fn get_neo4j_localhost_pool(port: u16) -> Result<Graph> {
     let uri = format!("127.0.0.1:{port}");

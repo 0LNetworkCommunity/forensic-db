@@ -1,10 +1,12 @@
 use anyhow::{bail, Result};
 use clap::{Parser, Subcommand};
-use log::info;
+use log::{info, warn};
 use neo4rs::Graph;
+use serde_json::json;
 use std::path::PathBuf;
 
 use crate::{
+    analytics,
     enrich_exchange_onboarding::{self, ExchangeOnRamp},
     enrich_whitepages::{self, Whitepages},
     json_rescue_v5_load,
@@ -97,6 +99,18 @@ pub enum Sub {
         /// starting path for v5 .tgz files
         archive_dir: PathBuf,
     },
+    #[clap(subcommand)]
+    Analytics(AnalyticsSub),
+}
+
+#[derive(Subcommand)]
+
+pub enum AnalyticsSub {
+    ExchangeRMS {
+        #[clap(long)]
+        /// commits the analytics to the db
+        persist: bool,
+    },
 }
 
 impl WarehouseCli {
@@ -185,6 +199,19 @@ impl WarehouseCli {
                 )
                 .await?;
             }
+            Sub::Analytics(analytics_sub) => match analytics_sub {
+                AnalyticsSub::ExchangeRMS { persist } => {
+                    if *persist {
+                        warn!("ExchangeRMS committing analytics to database!")
+                    };
+                    let pool = try_db_connection_pool(self).await?;
+                    let results = analytics::exchange_stats::query_rms_analytics_concurrent(
+                        &pool, None, None, *persist,
+                    )
+                    .await?;
+                    println!("{:#}", json!(&results).to_string());
+                }
+            },
         };
         Ok(())
     }
