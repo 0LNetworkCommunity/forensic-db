@@ -172,7 +172,6 @@ pub fn replay_transactions(orders: &mut [ExchangeOrder]) -> BalanceTracker {
     let mut tracker = BalanceTracker::new();
     let sorted_orders = orders;
     sorted_orders.sort_by_key(|order| order.created_at);
-    dbg!(&sorted_orders.len());
     for order in sorted_orders {
         tracker.process_transaction(order);
     }
