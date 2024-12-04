@@ -125,26 +125,23 @@ impl BalanceTracker {
         None
     }
     /// Generate a Cypher query string to insert data into Neo4j
-    pub fn generate_cypher_query(&self) -> String {
-        let mut query = String::new();
+    pub fn generate_cypher_query(&self, map: String) -> String {
 
         // r#"{{ swap_id: {}, date: "{}", balance: {}, funding: {}, inflows: {}, outflows: {}, user_flows: {}, accepter_flows: {} }}"#,
-        query.push_str(
+        format!(
             r#"
-            UNWIND $accounts AS account
-            MERGE (sa:SwapAccount {swap_id: account.swap_id})
-            MERGE (ul:UserLedger {date: account.date})
+            UNWIND {map} AS account
+            MERGE (sa:SwapAccount {{swap_id: account.swap_id}})
+            MERGE (ul:UserLedger {{date: account.date}})
             SET ul.balance = account.balance,
                 ul.funding = account.funding,
                 ul.inflows = account.inflows,
                 ul.outflows = account.outflows,
                 ul.user_flows = account.user_flows,
                 ul.accepter_flows = account.accepter_flows
-            MERGE (sa)-[:Daily {date: account.date}]->(ul)
+            MERGE (sa)-[:Daily {{date: account.date}}]->(ul)
             "#,
-        );
-
-        query
+        )
     }
 }
 
@@ -182,15 +179,12 @@ pub fn replay_transactions(orders: &mut [ExchangeOrder]) -> BalanceTracker {
 
 /// submit to db
 pub async fn submit_ledger(balances: &BalanceTracker, pool: &Graph) -> Result<()> {
-    let query_literal = balances.generate_cypher_query();
-    println!("Cypher Query:\n{}", &query_literal);
-    dbg!(&balances.accounts.len());
 
     for (id, acc) in balances.accounts.iter() {
         let data = acc.to_cypher_map(*id);
         dbg!("Cypher Parameters:\n{:?}", &data);
-
-        let query = Query::new(query_literal.clone()).param("accounts", data);
+        let query_literal = balances.generate_cypher_query(data);
+        let query = Query::new(query_literal);
         let mut result = pool.execute(query).await?;
 
         while let Some(r) = result.next().await? {
