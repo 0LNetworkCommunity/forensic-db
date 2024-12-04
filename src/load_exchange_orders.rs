@@ -93,7 +93,8 @@ pub async fn load_from_json(path: &Path, pool: &Graph, batch_size: usize) -> Res
     enrich_rms::process_buy_order_shill(&mut orders);
 
     let balances = enrich_account_funding::replay_transactions(&mut orders);
-    enrich_account_funding::submit_ledger(&balances, pool).await?;
+    let ledger_inserts = enrich_account_funding::submit_ledger(&balances, pool).await?;
+    info!("exchange ledger relations inserted: {}", ledger_inserts);
 
     swap_batch(&orders, pool, batch_size).await
 }

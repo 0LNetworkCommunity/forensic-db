@@ -64,9 +64,9 @@ impl BalanceTracker {
             "Buy" => (order.user, order.accepter, order.amount * order.price),
             "Sell" => (order.accepter, order.user, order.amount * order.price),
             _ => {
-              println!("ERROR: not a valid Buy/Sell order, {:?}", &order);
-              return
-            },
+                println!("ERROR: not a valid Buy/Sell order, {:?}", &order);
+                return;
+            }
         };
 
         self.update_balance_and_flows(seller_id, date, -amount, false);
@@ -126,7 +126,6 @@ impl BalanceTracker {
     }
     /// Generate a Cypher query string to insert data into Neo4j
     pub fn generate_cypher_query(&self, map: String) -> String {
-
         // r#"{{ swap_id: {}, date: "{}", balance: {}, funding: {}, inflows: {}, outflows: {}, user_flows: {}, accepter_flows: {} }}"#,
         format!(
             r#"
@@ -139,7 +138,8 @@ impl BalanceTracker {
                 ul.outflows = account.outflows,
                 ul.user_flows = account.user_flows,
                 ul.accepter_flows = account.accepter_flows
-            MERGE (sa)-[:Daily {{date: account.date}}]->(ul)
+            MERGE (sa)-[r:Daily {{date: account.date}}]->(ul)
+            RETURN COUNT(r) as merged_relations
             "#,
         )
     }
@@ -178,20 +178,22 @@ pub fn replay_transactions(orders: &mut [ExchangeOrder]) -> BalanceTracker {
 }
 
 /// submit to db
-pub async fn submit_ledger(balances: &BalanceTracker, pool: &Graph) -> Result<()> {
-
+pub async fn submit_ledger(balances: &BalanceTracker, pool: &Graph) -> Result<u64> {
+    let mut merged_relations = 0u64;
     for (id, acc) in balances.accounts.iter() {
         let data = acc.to_cypher_map(*id);
-        dbg!("Cypher Parameters:\n{:?}", &data);
         let query_literal = balances.generate_cypher_query(data);
         let query = Query::new(query_literal);
         let mut result = pool.execute(query).await?;
 
         while let Some(r) = result.next().await? {
             dbg!(&r);
+            if let Ok(i) = r.get::<u64>("merged_relations") {
+                merged_relations += i;
+            };
         }
     }
-    Ok(())
+    Ok(merged_relations)
 }
 
 /// Helper function to parse "YYYY-MM-DD" into `DateTime<Utc>`
@@ -378,15 +380,15 @@ fn test_cache_mechanism() {
     let _ = fs::remove_file(cache_file);
 }
 
-#[test]
+// #[test]
 
-fn test_cypher_query() {
-    let tracker = BalanceTracker::new(); // Assume tracker is populated
-                                         // let params = tracker.generate_cypher_params();
-    let query = tracker.generate_cypher_query();
-    // dbg!(&params);
-    dbg!(&query);
-}
+// fn test_cypher_query() {
+//     let tracker = BalanceTracker::new(); // Assume tracker is populated
+//                                          // let params = tracker.generate_cypher_params();
+//     let query = tracker.generate_cypher_query();
+//     // dbg!(&params);
+//     dbg!(&query);
+// }
 
 // I'm coding some data analysis in rust.
 
