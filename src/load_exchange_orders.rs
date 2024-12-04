@@ -5,7 +5,9 @@ use log::{error, info, warn};
 use neo4rs::{query, Graph};
 
 use crate::{
-    analytics::enrich_rms, extract_exchange_orders, queue, schema_exchange_orders::ExchangeOrder,
+    analytics::{enrich_account_funding, enrich_rms},
+    extract_exchange_orders, queue,
+    schema_exchange_orders::ExchangeOrder,
 };
 
 pub async fn swap_batch(
@@ -89,6 +91,9 @@ pub async fn load_from_json(path: &Path, pool: &Graph, batch_size: usize) -> Res
     // find likely shill bids
     enrich_rms::process_sell_order_shill(&mut orders);
     enrich_rms::process_buy_order_shill(&mut orders);
+
+    let balances = enrich_account_funding::replay_transactions(&mut orders);
+    enrich_account_funding::submit_ledger(&balances, pool).await?;
 
     swap_batch(&orders, pool, batch_size).await
 }
