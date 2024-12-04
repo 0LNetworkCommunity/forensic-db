@@ -6,7 +6,7 @@ use libra_forensic_db::{
     cypher_templates::{write_batch_tx_string, write_batch_user_create},
     extract_transactions::extract_current_transactions,
     load::try_load_one_archive,
-    load_tx_cypher::tx_batch,
+    load_tx_cypher::{alt_write_batch_tx_string, tx_batch},
     neo4j_init::{get_neo4j_localhost_pool, maybe_create_indexes},
     scan::scan_dir_archive,
     schema_transaction::WarehouseTxMaster,
@@ -103,6 +103,68 @@ async fn insert_with_cypher_string() -> Result<()> {
     let list_str = WarehouseTxMaster::to_cypher_map(&list);
 
     let cypher_string = write_batch_tx_string(&list_str);
+
+    let c = start_neo4j_container();
+    let port = c.get_host_port_ipv4(7687);
+    let graph = get_neo4j_localhost_pool(port)
+        .await
+        .expect("could not get neo4j connection pool");
+    maybe_create_indexes(&graph).await?;
+
+    // Execute the query
+    let cypher_query = query(&cypher_string);
+    let mut res = graph.execute(cypher_query).await?;
+
+    let row = res.next().await?.unwrap();
+    // let created_accounts: i64 = row.get("created_accounts").unwrap();
+    // dbg!(&created_accounts);
+    // assert!(created_accounts == 1);
+    // let modified_accounts: i64 = row.get("modified_accounts").unwrap();
+    // assert!(modified_accounts == 0);
+    // let unchanged_accounts: i64 = row.get("unchanged_accounts").unwrap();
+    // assert!(unchanged_accounts == 0);
+    let created_tx: i64 = row.get("created_tx").unwrap();
+    assert!(created_tx == 3);
+
+    // get the sum of all transactions in db
+    let cypher_query = query(
+        "MATCH ()-[r:Tx]->()
+         RETURN count(r) AS total_tx_count",
+    );
+
+    // Execute the query
+    let mut result = graph.execute(cypher_query).await?;
+    let row = result.next().await?.unwrap();
+    let total_tx_count: i64 = row.get("total_tx_count").unwrap();
+    assert!(total_tx_count == 3);
+    Ok(())
+}
+
+#[ignore]
+#[tokio::test]
+async fn alt_insert_with_cypher_string() -> Result<()> {
+    let tx1 = WarehouseTxMaster {
+        tx_hash: HashValue::random(),
+        ..Default::default()
+    };
+
+    let tx2 = WarehouseTxMaster {
+        tx_hash: HashValue::random(),
+        ..Default::default()
+    };
+
+    let tx3 = WarehouseTxMaster {
+        tx_hash: HashValue::random(),
+        ..Default::default()
+    };
+
+    // two tx records
+    let list = vec![tx1, tx2, tx3];
+
+    // let list_str = WarehouseTxMaster::to_cypher_map(&list);
+
+    let cypher_string = alt_write_batch_tx_string(&list)?;
+    dbg!(&cypher_string);
 
     let c = start_neo4j_container();
     let port = c.get_host_port_ipv4(7687);

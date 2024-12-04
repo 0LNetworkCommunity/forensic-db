@@ -1,5 +1,5 @@
 //! organic free trade template literals for cypher queries
-use anyhow::Result;
+use anyhow::{Context, Result};
 
 // TODO move this to a .CQL file so we can lint and debug
 pub fn write_batch_tx_string(list_str: &str) -> String {
@@ -16,11 +16,15 @@ MERGE (from)-[rel:Tx {{tx_hash: tx.tx_hash}}]->(to)
 ON CREATE SET rel.created_at = timestamp(), rel.modified_at = null
 ON MATCH SET rel.modified_at = timestamp()
 SET
-    rel += tx.args,
     rel.block_datetime = tx.block_datetime,
     rel.block_timestamp = tx.block_timestamp,
     rel.relation = tx.relation,
     rel.function = tx.function
+
+// Conditionally add `tx.args` if it exists
+FOREACH (_ IN CASE WHEN tx.args IS NOT NULL THEN [1] ELSE [] END |
+    SET rel += tx.args
+)
 
 WITH rel
 
@@ -59,7 +63,7 @@ RETURN
     )
 }
 
-use anyhow::bail;
+use log::warn;
 use serde::Serialize;
 use serde_json::Value;
 
@@ -72,23 +76,24 @@ use serde_json::Value;
 /// # Returns
 /// A string in the format `{key: value, nested: {key2: value2}, array: [value3, value4]}` that can be used in Cypher queries.
 ///  Thanks Copilot ;)
-pub fn to_cypher_object<T: Serialize>(object: &T, prefix: Option<&str>) -> Result<String> {
+pub fn to_cypher_object<T: Serialize>(object: &T) -> Result<String> {
     // Serialize the struct to a JSON value
 
     let serialized_value = serde_json::to_value(object).expect("Failed to serialize");
     // dbg!(&serialized_value);
 
-    // Convert the JSON value into a map for easy processing
-    let map = if let Value::Object(obj) = serialized_value {
-        obj
-    } else {
-        bail!("Expected the serialized value to be an object");
+    let flattener = smooth_json::Flattener {
+        separator: "_",
+        ..Default::default()
     };
 
+    // Convert the JSON value into a map for easy processing
+    let flat = flattener.flatten(&serialized_value);
+    let map = flat.as_object().context("cannot map on json object")?;
     // Build properties part of the Cypher object
     let properties: Vec<String> = map
         .into_iter()
-        .map(|(mut key, value)| {
+        .map(|(key, value)| {
             let formatted_value = match value {
                 Value::String(s) => format!("'{}'", s), // Wrap strings in single quotes
                 Value::Number(n) => n.to_string(),      // Use numbers as-is
@@ -104,19 +109,17 @@ pub fn to_cypher_object<T: Serialize>(object: &T, prefix: Option<&str>) -> Resul
                             Value::Bool(b) => b.to_string(),
                             Value::Null => "null".to_string(),
                             Value::Object(_) => {
-                                to_cypher_object(elem, None).unwrap_or("error".to_owned())
+                                to_cypher_object(elem).unwrap_or("error".to_owned())
                             } // Recurse for nested objects in arrays
-                            _ => panic!("Unsupported type in array for Cypher serialization"),
+                            _ => "Unsupported type in array for Cypher serialization".to_string(),
                         })
                         .collect();
                     format!("[{}]", elements.join(", "))
                 }
                 Value::Object(_) => {
-                    if let Some(p) = prefix {
-                        key = format!("{}.{}", p, key);
-                    }
-                    to_cypher_object(&value, Some(&key)).unwrap_or("error".to_owned())
-                } // Recurse for nested objects
+                    warn!("the json should have been flattened before this");
+                    "recursive object error".to_string()
+                }
             };
             format!("{}: {}", key, formatted_value)
         })
@@ -165,6 +168,6 @@ fn test_serialize_to_cypher_object() {
     };
 
     // Serialize to a Cypher object
-    let cypher_object = to_cypher_object(&person, None).unwrap();
+    let cypher_object = to_cypher_object(&person).unwrap();
     println!("{}", cypher_object);
 }

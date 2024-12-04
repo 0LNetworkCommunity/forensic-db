@@ -15,6 +15,11 @@ pub fn v7_fixtures_gzipped() -> PathBuf {
     p.join("tests/fixtures/v7/transaction_38100001-.541f_gzipped")
 }
 
+pub fn v5_json_tx_path() -> PathBuf {
+    let p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    p.join("tests/fixtures/v5/json-rescue")
+}
+
 pub fn v5_state_manifest_fixtures_path() -> PathBuf {
     let p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let dir = p.join("tests/fixtures/v5/state_ver_119757649.17a8");
