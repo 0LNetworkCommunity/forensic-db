@@ -26,7 +26,7 @@ use std::path::{Path, PathBuf};
 
 pub fn extract_v5_json_rescue(
     one_json_file: &Path,
-) -> Result<(Vec<WarehouseTxMaster>, Vec<WarehouseEvent>)> {
+) -> Result<(Vec<WarehouseTxMaster>, Vec<WarehouseEvent>, Vec<String>)> {
     let json = std::fs::read_to_string(one_json_file).context("could not read file")?;
 
     let txs: Vec<TransactionViewV5> = serde_json::from_str(&json)
@@ -34,6 +34,7 @@ pub fn extract_v5_json_rescue(
 
     let mut tx_vec = vec![];
     let event_vec = vec![];
+    let mut unique_functions = vec![];
 
     for t in txs {
         let mut wtxs = WarehouseTxMaster::default();
@@ -46,6 +47,9 @@ pub fn extract_v5_json_rescue(
 
                 wtxs.function = make_function_name(script);
                 trace!("function: {}", &wtxs.function);
+                if !unique_functions.contains(&wtxs.function) {
+                    unique_functions.push(wtxs.function.clone());
+                }
 
                 decode_transaction_args(&mut wtxs, &t.bytes)?;
 
@@ -53,7 +57,15 @@ pub fn extract_v5_json_rescue(
                 // wtxs.events
                 // wtxs.block_timestamp
 
-                tx_vec.push(wtxs);
+                // TODO: create arg to exclude tx without counter party
+                match &wtxs.relation_label {
+                    RelationLabel::Tx => {}
+                    RelationLabel::Transfer(_) => tx_vec.push(wtxs),
+                    RelationLabel::Onboarding(_) => tx_vec.push(wtxs),
+                    RelationLabel::Vouch(_) => tx_vec.push(wtxs),
+                    RelationLabel::Configuration => {}
+                    RelationLabel::Miner => {}
+                };
             }
             TransactionDataView::BlockMetadata { timestamp_usecs: _ } => {
                 // TODO get epoch events
@@ -66,12 +78,18 @@ pub fn extract_v5_json_rescue(
         }
     }
 
-    Ok((tx_vec, event_vec))
+    Ok((tx_vec, event_vec, unique_functions))
 }
 
 pub fn decode_transaction_args(wtx: &mut WarehouseTxMaster, tx_bytes: &[u8]) -> Result<()> {
     // test we can bcs decode to the transaction object
-    let t: TransactionV5 = bcs::from_bytes(tx_bytes).unwrap();
+    let t: TransactionV5 = bcs::from_bytes(tx_bytes).map_err(|err| {
+        anyhow!(
+            "could not bcs decode tx_bytes, for function: {}, msg: {:?}",
+            wtx.function,
+            err
+        )
+    })?;
 
     if let TransactionV5::UserTransaction(u) = &t {
         if let TransactionPayload::ScriptFunction(_) = &u.raw_txn.payload {
@@ -82,6 +100,10 @@ pub fn decode_transaction_args(wtx: &mut WarehouseTxMaster, tx_bytes: &[u8]) -> 
                         wtx.relation_label =
                             RelationLabel::Transfer(cast_legacy_account(destination)?);
 
+                        wtx.entry_function = Some(EntryFunctionArgs::V5(sf.to_owned()));
+                    }
+                    ScriptFunctionCallGenesis::AutopayCreateInstruction { payee, .. } => {
+                        wtx.relation_label = RelationLabel::Transfer(cast_legacy_account(payee)?);
                         wtx.entry_function = Some(EntryFunctionArgs::V5(sf.to_owned()));
                     }
                     ScriptFunctionCallGenesis::CreateAccUser { .. } => {

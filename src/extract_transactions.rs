@@ -11,6 +11,7 @@ use libra_cached_packages::libra_stdlib::EntryFunctionCall;
 use libra_storage::read_tx_chunk::{load_chunk, load_tx_chunk_manifest};
 use libra_types::move_resource::coin_register_event::CoinRegisterEvent;
 use libra_types::util::format_signed_transaction;
+use log::{error, info, warn};
 use serde_json::json;
 use std::path::Path;
 
@@ -81,20 +82,22 @@ pub async fn extract_current_transactions(
                     make_master_tx(signed_transaction, epoch, round, timestamp, decoded_events)?;
 
                 // sanity check that we are talking about the same block, and reading vectors sequentially.
-                assert!(tx.tx_hash == tx_hash_info, "transaction hashes do not match in transaction vector and transaction_info vector");
+                if tx.tx_hash != tx_hash_info {
+                    error!("transaction hashes do not match in transaction vector and transaction_info vector");
+                }
 
-                user_txs.push(tx);
-
-                user_txs_in_chunk += 1;
+                if tx.relation_label.get_recipient().is_some() {
+                    user_txs.push(tx);
+                    user_txs_in_chunk += 1;
+                }
             }
         }
+        info!("user transactions found in chunk: {}", chunk.txns.len());
+        info!("user transactions extracted: {}", user_txs.len());
+        if user_txs_in_chunk != user_txs.len() {
+            warn!("some transactions excluded from extraction");
+        }
     }
-    // TODO: use logging
-    assert!(
-        user_txs_in_chunk == user_txs.len(),
-        "don't parse same amount of user txs as in chunk"
-    );
-    println!("user transactions found in chunk: {}", user_txs_in_chunk);
 
     Ok((user_txs, events))
 }
@@ -119,7 +122,7 @@ pub fn make_master_tx(
         }
         diem_types::transaction::TransactionPayload::Multisig(_multisig) => "Multisig".to_string(),
     };
-    let relation_label = get_relation(user_tx, &events);
+    let relation_label = pick_relation(user_tx, &events);
 
     let tx = WarehouseTxMaster {
         tx_hash,
@@ -204,9 +207,26 @@ pub fn function_args_to_json(user_tx: &SignedTransaction) -> Result<serde_json::
     Ok(json)
 }
 
-// TODO: unsure if this needs to happen on Rust side
-fn get_relation(user_tx: &SignedTransaction, events: &[WarehouseEvent]) -> RelationLabel {
-    match EntryFunctionCall::decode(user_tx.payload()) {
+fn pick_relation(user_tx: &SignedTransaction, events: &[WarehouseEvent]) -> RelationLabel {
+    if let Some(r) = maybe_get_current_relation(user_tx, events) {
+        return r;
+    }
+    if let Some(r) = maybe_get_v7_relation(user_tx, events) {
+        return r;
+    }
+
+    if let Some(r) = maybe_get_v6_relation(user_tx, events) {
+        return r;
+    }
+
+    RelationLabel::Configuration
+}
+// Using HEAD libra-framework code base try to decode transaction
+fn maybe_get_current_relation(
+    user_tx: &SignedTransaction,
+    events: &[WarehouseEvent],
+) -> Option<RelationLabel> {
+    let r = match EntryFunctionCall::decode(user_tx.payload()) {
         Some(EntryFunctionCall::OlAccountTransfer { to, amount: _ }) => {
             if is_onboarding_event(events) {
                 RelationLabel::Onboarding(to)
@@ -214,10 +234,94 @@ fn get_relation(user_tx: &SignedTransaction, events: &[WarehouseEvent]) -> Relat
                 RelationLabel::Transfer(to)
             }
         }
+        Some(EntryFunctionCall::OlAccountCreateAccount { auth_key }) => {
+            RelationLabel::Onboarding(auth_key)
+        }
+        Some(EntryFunctionCall::VouchVouchFor { friend_account }) => {
+            RelationLabel::Vouch(friend_account)
+        }
+        Some(EntryFunctionCall::VouchInsistVouchFor { friend_account }) => {
+            RelationLabel::Vouch(friend_account)
+        }
+        Some(EntryFunctionCall::CoinTransfer { to, .. }) => RelationLabel::Transfer(to),
+        Some(EntryFunctionCall::AccountRotateAuthenticationKeyWithRotationCapability {
+            rotation_cap_offerer_address,
+            ..
+        }) => RelationLabel::Transfer(rotation_cap_offerer_address),
+
         // TODO: get other entry functions with known counter parties
         // if nothing is found try to decipher from events
-        _ => RelationLabel::Tx,
-    }
+        _ => return None,
+    };
+    Some(r)
+}
+
+fn maybe_get_v7_relation(
+    user_tx: &SignedTransaction,
+    events: &[WarehouseEvent],
+) -> Option<RelationLabel> {
+    let r = match V7EntryFunctionCall::decode(user_tx.payload()) {
+        Some(V7EntryFunctionCall::OlAccountTransfer { to, amount: _ }) => {
+            if is_onboarding_event(events) {
+                RelationLabel::Onboarding(to)
+            } else {
+                RelationLabel::Transfer(to)
+            }
+        }
+        Some(V7EntryFunctionCall::OlAccountCreateAccount { auth_key }) => {
+            RelationLabel::Onboarding(auth_key)
+        }
+        Some(V7EntryFunctionCall::VouchVouchFor { friend_account }) => {
+            RelationLabel::Vouch(friend_account)
+        }
+        Some(V7EntryFunctionCall::VouchInsistVouchFor { friend_account }) => {
+            RelationLabel::Vouch(friend_account)
+        }
+        Some(V7EntryFunctionCall::CoinTransfer { to, .. }) => RelationLabel::Transfer(to),
+        Some(V7EntryFunctionCall::AccountRotateAuthenticationKeyWithRotationCapability {
+            rotation_cap_offerer_address,
+            ..
+        }) => RelationLabel::Transfer(rotation_cap_offerer_address),
+
+        // TODO: get other entry functions with known counter parties
+        // if nothing is found try to decipher from events
+        _ => return None,
+    };
+    Some(r)
+}
+
+fn maybe_get_v6_relation(
+    user_tx: &SignedTransaction,
+    events: &[WarehouseEvent],
+) -> Option<RelationLabel> {
+    let r = match V6EntryFunctionCall::decode(user_tx.payload()) {
+        Some(V6EntryFunctionCall::OlAccountTransfer { to, amount: _ }) => {
+            if is_onboarding_event(events) {
+                RelationLabel::Onboarding(to)
+            } else {
+                RelationLabel::Transfer(to)
+            }
+        }
+        Some(V6EntryFunctionCall::OlAccountCreateAccount { auth_key }) => {
+            RelationLabel::Onboarding(auth_key)
+        }
+        Some(V6EntryFunctionCall::VouchVouchFor { wanna_be_my_friend }) => {
+            RelationLabel::Vouch(wanna_be_my_friend)
+        }
+        Some(V6EntryFunctionCall::VouchInsistVouchFor { wanna_be_my_friend }) => {
+            RelationLabel::Vouch(wanna_be_my_friend)
+        }
+        Some(V6EntryFunctionCall::CoinTransfer { to, .. }) => RelationLabel::Transfer(to),
+        Some(V6EntryFunctionCall::AccountRotateAuthenticationKeyWithRotationCapability {
+            rotation_cap_offerer_address,
+            ..
+        }) => RelationLabel::Transfer(rotation_cap_offerer_address),
+
+        // TODO: get other entry functions with known counter parties
+        // if nothing is found try to decipher from events
+        _ => return None,
+    };
+    Some(r)
 }
 
 fn is_onboarding_event(events: &[WarehouseEvent]) -> bool {
