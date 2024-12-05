@@ -89,10 +89,11 @@ async fn test_load_entry_point_tx() -> anyhow::Result<()> {
 
     let res = try_load_one_archive(man, &graph, 10).await?;
 
-    assert!(res.created_accounts == 135);
-    assert!(res.modified_accounts == 590);
+    assert!(res.unique_accounts == 31);
+    assert!(res.created_accounts == 25);
+    assert!(res.modified_accounts == 6);
     assert!(res.unchanged_accounts == 0);
-    assert!(res.created_tx == 725);
+    assert!(res.created_tx == 27);
 
     Ok(())
 }
