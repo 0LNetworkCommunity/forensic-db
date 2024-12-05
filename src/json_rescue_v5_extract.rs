@@ -11,14 +11,14 @@ use libra_backwards_compatibility::{
     version_five::{
         legacy_address_v5::LegacyAddressV5,
         transaction_type_v5::{TransactionPayload, TransactionV5},
-        transaction_view_v5::{ScriptView, TransactionDataView, TransactionViewV5},
+        transaction_view_v5::{EventDataView, ScriptView, TransactionDataView, TransactionViewV5},
     },
 };
 
 use anyhow::{anyhow, Context, Result};
 use diem_temppath::TempPath;
 use diem_types::account_address::AccountAddress;
-use log::trace;
+use log::{error, trace, warn};
 use std::path::{Path, PathBuf};
 /// The canonical transaction archives for V5 were kept in a different format as in v6 and v7.
 /// As of Nov 2024, there's a project to recover the V5 transaction archives to be in the same bytecode flat file format as v6 and v7.
@@ -36,6 +36,7 @@ pub fn extract_v5_json_rescue(
     let event_vec = vec![];
     let mut unique_functions = vec![];
 
+    let mut timestamp = 0;
     for t in txs {
         let mut wtxs = WarehouseTxMaster::default();
         match &t.transaction {
@@ -55,7 +56,8 @@ pub fn extract_v5_json_rescue(
 
                 // TODO:
                 // wtxs.events
-                // wtxs.block_timestamp
+                // TODO:
+                wtxs.block_timestamp = timestamp;
 
                 // TODO: create arg to exclude tx without counter party
                 match &wtxs.relation_label {
@@ -67,12 +69,25 @@ pub fn extract_v5_json_rescue(
                     RelationLabel::Miner => {}
                 };
             }
-            TransactionDataView::BlockMetadata { timestamp_usecs: _ } => {
+            TransactionDataView::BlockMetadata { timestamp_usecs } => {
+                if *timestamp_usecs < timestamp {
+                    error!("timestamps are not increasing");
+                } else {
+                    timestamp = *timestamp_usecs;
+                }
+
                 // TODO get epoch events
-                //  t.events.iter().any(|e|{
-                // if let epoch: NewEpoch = e.data {
-                //   }
-                // })
+                t.events.iter().for_each(|e| {
+                    // if let Some(epoch) = bcs::from_bytes::<NewEpochEventV5>(&e.data).ok() {
+                    //     warn!("new epoch event: {:?}", epoch);
+                    // };
+                    match &e.data {
+                        EventDataView::NewEpoch { epoch } => {
+                            warn!("new epoch event: {:?}", epoch);
+                        }
+                        _ => {}
+                    }
+                });
             }
             _ => {}
         }
@@ -94,6 +109,7 @@ pub fn decode_transaction_args(wtx: &mut WarehouseTxMaster, tx_bytes: &[u8]) -> 
     if let TransactionV5::UserTransaction(u) = &t {
         if let TransactionPayload::ScriptFunction(_) = &u.raw_txn.payload {
             if let Some(sf) = &ScriptFunctionCallGenesis::decode(&u.raw_txn.payload) {
+                wtx.entry_function = Some(EntryFunctionArgs::V5(sf.to_owned()));
                 // TODO: some script functions have very large payloads which clog the e.g. Miner. So those are only added for the catch-all txs which don't fall into categories we are interested in.
                 match sf {
                     ScriptFunctionCallGenesis::BalanceTransfer { destination, .. } => {
@@ -151,6 +167,8 @@ pub fn decode_transaction_args(wtx: &mut WarehouseTxMaster, tx_bytes: &[u8]) -> 
             }
 
             if let Some(sf) = &ScriptFunctionCallV520::decode(&u.raw_txn.payload) {
+                wtx.entry_function = Some(EntryFunctionArgs::V520(sf.to_owned()));
+
                 match sf {
                     ScriptFunctionCallV520::CreateAccUser { .. } => {
                         wtx.relation_label = RelationLabel::Onboarding(wtx.sender);

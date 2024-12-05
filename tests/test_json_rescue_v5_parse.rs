@@ -7,7 +7,10 @@ use libra_backwards_compatibility::{
         transaction_view_v5::TransactionViewV5,
     },
 };
-use libra_forensic_db::json_rescue_v5_extract::{decompress_to_temppath, extract_v5_json_rescue};
+use libra_forensic_db::{
+    json_rescue_v5_extract::{decompress_to_temppath, extract_v5_json_rescue},
+    schema_transaction::EntryFunctionArgs,
+};
 use support::fixtures;
 
 #[test]
@@ -69,21 +72,28 @@ fn test_json_format_example() -> anyhow::Result<()> {
 
     let (tx, _, _) = extract_v5_json_rescue(&p)?;
     let first = tx.first().unwrap();
-    dbg!(&tx);
 
-    assert!(first.sender.to_hex_literal() == "0xc8336044cdf1878d9738ed0a041b235e");
+    assert!(first.sender.to_hex_literal() == "0xecaf65add1b785b0495e3099f4045ec0".to_string());
     Ok(())
 }
 
 #[test]
 fn test_json_full_file() -> anyhow::Result<()> {
     libra_forensic_db::log_setup();
-    let p = fixtures::v5_json_tx_path().join("0-999.json");
+    let p = fixtures::v5_json_tx_path().join("10000-10999.json");
 
     let (tx, _, _) = extract_v5_json_rescue(&p)?;
 
+    assert!(tx.len() == 4);
     let first = tx.first().unwrap();
-    dbg!(&first.entry_function);
+
+    assert!(first.sender.to_hex_literal() == "0xb31bd7796bc113013a2bf6c3953305fd");
+
+    if let Some(EntryFunctionArgs::V5(ScriptFunctionCall::CreateUserByCoinTx { account, .. })) =
+        first.entry_function
+    {
+        assert!(account.to_hex_literal() == "0xBCA50D10041FA111D1B44181A264A599".to_lowercase())
+    }
 
     Ok(())
 }
@@ -91,14 +101,13 @@ fn test_json_full_file() -> anyhow::Result<()> {
 #[test]
 fn decompress_and_read() {
     let path = fixtures::v5_json_tx_path().join("0-99900.tgz");
-
     let temp_dir = decompress_to_temppath(&path).unwrap();
 
-    let first_file = temp_dir.path().join("0-999.json");
+    // get an advanced record
+    let first_file = temp_dir.path().join("10000-10999.json");
     let (tx, _, _) = extract_v5_json_rescue(&first_file).unwrap();
-    dbg!(&tx.len());
-    assert!(tx.len() == 11);
+    assert!(tx.len() == 4);
     let first = tx.first().unwrap();
 
-    assert!(first.sender.to_hex_literal() == "0xc8336044cdf1878d9738ed0a041b235e");
+    assert!(first.sender.to_hex_literal() == "0xb31bd7796bc113013a2bf6c3953305fd");
 }
