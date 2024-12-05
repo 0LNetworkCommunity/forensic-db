@@ -36,10 +36,13 @@ impl ManifestInfo {
         match self.contents {
             BundleContent::Unknown => return FrameworkVersion::Unknown,
             BundleContent::StateSnapshot => {
+                let man_path = self.archive_dir.join(self.contents.filename());
+                dbg!(&man_path);
+
                 // first check if the v7 manifest will parse
-                if load_snapshot_manifest(&self.archive_dir).is_ok() {
+                if let Ok(_bak) = load_snapshot_manifest(&man_path) {
                     self.version = FrameworkVersion::V7;
-                }
+                };
 
                 if v5_read_from_snapshot_manifest(&self.archive_dir).is_ok() {
                     self.version = FrameworkVersion::V5;
@@ -98,15 +101,19 @@ pub fn scan_dir_archive(
 ) -> Result<ArchiveMap> {
     let path = parent_dir.canonicalize()?;
     let filename = content_opt.unwrap_or(BundleContent::Unknown).filename();
+    dbg!(&filename);
     let pattern = format!(
         "{}/**/{}",
         path.to_str().context("cannot parse starting dir")?,
         filename,
     );
 
+    dbg!(&pattern);
+
     let mut archive = BTreeMap::new();
 
     for entry in glob(&pattern)? {
+        dbg!(&entry);
         match entry {
             Ok(manifest_path) => {
                 let dir = manifest_path
@@ -114,6 +121,7 @@ pub fn scan_dir_archive(
                     .context("no parent dir found")?
                     .to_owned();
                 let contents = test_content(&manifest_path);
+                dbg!(&contents);
                 let archive_id = dir.file_name().unwrap().to_str().unwrap().to_owned();
                 let mut m = ManifestInfo {
                     archive_dir: dir.clone(),

@@ -40,7 +40,7 @@ async fn test_snapshot_batch() -> anyhow::Result<()> {
     libra_forensic_db::log_setup();
     let archive_path = v7_state_manifest_fixtures_path();
     assert!(archive_path.exists());
-    let vec_snap = extract_current_snapshot(&archive_path ).await?;
+    let vec_snap = extract_current_snapshot(&archive_path).await?;
 
     let c = start_neo4j_container();
     let port = c.get_host_port_ipv4(7687);
