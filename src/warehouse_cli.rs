@@ -59,7 +59,7 @@ pub enum Sub {
         batch_size: Option<usize>,
     },
     /// process and load a single archive
-    LoadOne {
+    IngestOne {
         #[clap(long, short('d'))]
         /// location of archive
         archive_dir: PathBuf,
@@ -126,7 +126,7 @@ impl WarehouseCli {
                 neo4j_init::maybe_create_indexes(&pool).await?;
                 ingest_all(&map, &pool, self.clear_queue, batch_size.unwrap_or(250)).await?;
             }
-            Sub::LoadOne {
+            Sub::IngestOne {
                 archive_dir,
                 batch_size,
             } => {
