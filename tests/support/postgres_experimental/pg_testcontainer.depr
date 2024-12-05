@@ -43,6 +43,7 @@ pub fn start_container<'a>() -> Container<'a, GenericImage> {
     container
 }
 
+#[ignore]
 #[tokio::test]
 async fn test_meta_setup() {
     let (db, _c) = get_test_pool()

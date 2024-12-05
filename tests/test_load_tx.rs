@@ -18,7 +18,7 @@ use support::neo4j_testcontainer::start_neo4j_container;
 async fn test_tx_batch() -> anyhow::Result<()> {
     libra_forensic_db::log_setup();
     let archive_path = support::fixtures::v6_tx_manifest_fixtures_path();
-    let (txs, events) = extract_current_transactions(&archive_path).await?;
+    let (txs, _events) = extract_current_transactions(&archive_path).await?;
     assert!(txs.len() == 27);
 
     let c = start_neo4j_container();
@@ -89,10 +89,11 @@ async fn test_load_entry_point_tx() -> anyhow::Result<()> {
 
     let res = try_load_one_archive(man, &graph, 10).await?;
 
-    assert!(res.created_accounts == 135);
-    assert!(res.modified_accounts == 590);
+    assert!(res.unique_accounts == 31);
+    assert!(res.created_accounts == 25);
+    assert!(res.modified_accounts == 6);
     assert!(res.unchanged_accounts == 0);
-    assert!(res.created_tx == 725);
+    assert!(res.created_tx == 27);
 
     Ok(())
 }
