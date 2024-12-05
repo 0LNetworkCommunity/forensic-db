@@ -37,6 +37,7 @@ pub fn extract_v5_json_rescue(
     let mut unique_functions = vec![];
 
     let mut timestamp = 0;
+    let mut epoch_counter = 0;
     for t in txs {
         let mut wtxs = WarehouseTxMaster::default();
         match &t.transaction {
@@ -78,14 +79,9 @@ pub fn extract_v5_json_rescue(
 
                 // TODO get epoch events
                 t.events.iter().for_each(|e| {
-                    // if let Some(epoch) = bcs::from_bytes::<NewEpochEventV5>(&e.data).ok() {
-                    //     warn!("new epoch event: {:?}", epoch);
-                    // };
-                    match &e.data {
-                        EventDataView::NewEpoch { epoch } => {
-                            warn!("new epoch event: {:?}", epoch);
-                        }
-                        _ => {}
+                    if let EventDataView::NewEpoch { epoch } = &e.data {
+                        warn!("new epoch event: {:?}", epoch);
+                        epoch_counter = *epoch;
                     }
                 });
             }

@@ -73,7 +73,7 @@ fn test_json_format_example() -> anyhow::Result<()> {
     let (tx, _, _) = extract_v5_json_rescue(&p)?;
     let first = tx.first().unwrap();
 
-    assert!(first.sender.to_hex_literal() == "0xecaf65add1b785b0495e3099f4045ec0".to_string());
+    assert!(first.sender.to_hex_literal() == *"0xecaf65add1b785b0495e3099f4045ec0");
     Ok(())
 }
 
