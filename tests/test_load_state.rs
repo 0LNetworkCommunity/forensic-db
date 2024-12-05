@@ -38,9 +38,9 @@ async fn test_snapshot_unit() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_snapshot_batch() -> anyhow::Result<()> {
     libra_forensic_db::log_setup();
-    let manifest_file = v7_state_manifest_fixtures_path().join("state.manifest");
-    assert!(manifest_file.exists());
-    let vec_snap = extract_current_snapshot(&manifest_file).await?;
+    let archive_path = v7_state_manifest_fixtures_path();
+    assert!(archive_path.exists());
+    let vec_snap = extract_current_snapshot(&archive_path ).await?;
 
     let c = start_neo4j_container();
     let port = c.get_host_port_ipv4(7687);
@@ -52,8 +52,8 @@ async fn test_snapshot_batch() -> anyhow::Result<()> {
         .expect("could start index");
 
     let merged_snapshots = impl_batch_snapshot_insert(&graph, &vec_snap[..100]).await?;
-    dbg!(&merged_snapshots.created_tx);
-    // assert!(merged_snapshots.created_tx == 100);
+
+    assert!(merged_snapshots.created_tx == 100);
 
     // check DB to see what is persisted
     let cypher_query = neo4rs::query(
@@ -67,8 +67,8 @@ async fn test_snapshot_batch() -> anyhow::Result<()> {
     // Fetch the first row only
     let row = result.next().await?.unwrap();
     let count: i64 = row.get("count_state_edges").unwrap();
-    dbg!(&count);
-    // assert!(count == 100i64);
+
+    assert!(count == 100i64);
 
     Ok(())
 }
