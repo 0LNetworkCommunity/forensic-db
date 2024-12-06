@@ -223,7 +223,7 @@ pub fn generate_cypher_query(map: String) -> String {
                 ul.total_outflows = account.total_outflows,
                 ul.daily_funding = account.daily_funding,
                 ul.daily_inflows = account.daily_inflows,
-                ul.daily_outflows = account.daily_outflows,
+                ul.daily_outflows = account.daily_outflows
             MERGE (sa)-[r:DailyLedger]->(ul)
             SET r.date = datetime(account.date)
             RETURN COUNT(r) as merged_relations
