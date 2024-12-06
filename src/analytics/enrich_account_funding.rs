@@ -137,6 +137,9 @@ impl BalanceTracker {
             // reset to zero
             today.current_balance = 0.0;
         }
+        // no changes to funding
+        today.total_funded = previous.total_funded;
+
     }
 
     /// Save the balance tracker to a JSON file
