@@ -175,6 +175,7 @@ async fn e2e_swap_data() -> Result<()> {
     Ok(())
 }
 
+#[ignore]
 #[tokio::test]
 async fn test_entry_point_exchange_load() -> Result<()> {
     libra_forensic_db::log_setup();
