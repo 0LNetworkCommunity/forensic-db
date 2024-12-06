@@ -75,6 +75,8 @@ impl BalanceTracker {
     ) {
         let ul = self.0.entry(user_id).or_default();
 
+        let has_history = !ul.0.is_empty();
+
         let most_recent_date = *ul.0.keys().max_by(|x, y| x.cmp(y)).unwrap_or(&date);
 
         // NOTE the previous record may be today's record from a previous transaction. Need to take care in the aggregation below
@@ -99,47 +101,51 @@ impl BalanceTracker {
 
         let today = ul.0.entry(date).or_default();
 
+        // roll over from previous
+        if has_history {
+            today.current_balance = previous.current_balance;
+            today.total_funded = previous.total_funded;
+            today.total_inflows = previous.total_inflows;
+            today.total_outflows = previous.total_outflows;
+        }
+
         if credit {
-            today.current_balance = previous.current_balance + amount;
-            today.total_inflows = previous.total_inflows + amount;
+            today.current_balance += amount;
+            today.total_inflows += amount;
+            // there are records from today
             if most_recent_date == date {
                 today.daily_inflows = previous.daily_inflows + amount;
             } else {
+                // today's first record
                 today.daily_inflows = amount;
             }
-            // no change from on totals
-            today.total_outflows = previous.total_outflows;
         } else {
             // debit
-            today.current_balance = previous.current_balance - amount;
-            today.total_outflows = previous.total_outflows + amount;
+            today.current_balance += -amount;
+            today.total_outflows += amount;
 
             if most_recent_date == date {
                 today.daily_outflows = previous.daily_outflows + amount;
             } else {
                 today.daily_outflows = amount;
             }
-
-            // no change from on totals
-            today.total_inflows = previous.total_inflows;
         }
 
         // find out if the outflows created a funding requirement on the account
         if today.current_balance < 0.0 {
             let negative_balance = today.current_balance.abs();
             // funding was needed
-            today.total_funded = previous.total_funded + negative_balance;
+            today.total_funded += negative_balance;
+
+            // if the previous record is from today
             if most_recent_date == date {
-                today.daily_funding += negative_balance;
+                today.daily_funding = previous.daily_funding + negative_balance;
             } else {
                 today.daily_funding = negative_balance;
             }
             // reset to zero
             today.current_balance = 0.0;
         }
-        // no changes to funding
-        today.total_funded = previous.total_funded;
-
     }
 
     /// Save the balance tracker to a JSON file
