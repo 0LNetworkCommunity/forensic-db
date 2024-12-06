@@ -196,25 +196,13 @@ impl BalanceTracker {
             let data = self.to_cypher_map(*id)?;
             let query_literal = generate_cypher_query(data);
             let query = Query::new(query_literal);
-            let result = pool.execute(query).await;
+            let mut result = pool.execute(query).await?;
 
-            match result {
-                Ok(mut d) => {
-                    while let r = d.next().await {
-                        match r {
-                            Ok(row) => {
-                                if let Some(r) = row {
-                                    if let Ok(i) = r.get::<u64>("merged_relations") {
-                                        trace!("merged ledger in tx: {i}");
-                                        merged_relations += i;
-                                    };
-                                }
-                            }
-                            Err(e) => error!("could not parse row in cypher query response: {}", e),
-                        }
-                    }
-                }
-                Err(e) => error!("could not get response in cypher query response: {}", e),
+            while let Some(r) = result.next().await? {
+                if let Ok(i) = r.get::<u64>("merged_relations") {
+                    trace!("merged ledger in tx: {i}");
+                    merged_relations += i;
+                };
             }
         }
         Ok(merged_relations)
