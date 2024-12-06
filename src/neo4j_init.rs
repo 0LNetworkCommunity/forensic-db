@@ -36,7 +36,7 @@ pub static INDEX_SWAP_TIME: &str =
     "CREATE INDEX swap_time IF NOT EXISTS FOR ()-[r:Swap]-() ON (r.filled_at)";
 
 pub static INDEX_EXCHANGE_LEDGER: &str = "
-    CREATE INDEX user_ledger IF NOT EXISTS FOR (ul:UserExchangeLedger) ON (ul.date)
+    CREATE INDEX user_ledger IF NOT EXISTS FOR (ul:UserLedger) ON (ul.date)
     ";
 
 pub static INDEX_EXCHANGE_LINK_LEDGER: &str = "
