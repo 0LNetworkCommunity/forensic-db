@@ -86,11 +86,16 @@ pub async fn impl_batch_tx_insert(pool: &Graph, batch_txs: &[ExchangeOrder]) -> 
 
 pub async fn load_from_json(path: &Path, pool: &Graph, batch_size: usize) -> Result<(u64, u64)> {
     let mut orders = extract_exchange_orders::read_orders_from_file(path)?;
+    info!("completed parsing orders");
+
     // add RMS stats to each order
     enrich_rms::include_rms_stats(&mut orders);
+    info!("completed rms statistics");
+
     // find likely shill bids
     enrich_rms::process_sell_order_shill(&mut orders);
     enrich_rms::process_buy_order_shill(&mut orders);
+    info!("completed shill bid calculation");
 
     let mut balances = BalanceTracker::new();
     balances.replay_transactions(&mut orders)?;

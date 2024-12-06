@@ -176,7 +176,9 @@ async fn e2e_swap_data() -> Result<()> {
 }
 
 #[tokio::test]
-async fn test_entry_point_exchange_load() -> Result<()>{
+async fn test_entry_point_exchange_load() -> Result<()> {
+    libra_forensic_db::log_setup();
+
     let c = start_neo4j_container();
     let port = c.get_host_port_ipv4(7687);
     let graph = get_neo4j_localhost_pool(port).await?;
@@ -184,6 +186,6 @@ async fn test_entry_point_exchange_load() -> Result<()>{
 
     let path = env!("CARGO_MANIFEST_DIR");
     let buf = PathBuf::from(path).join("tests/fixtures/savedOlOrders2.json");
-    load_exchange_orders::load_from_json(&buf, &graph, 250).await?;
+    load_exchange_orders::load_from_json(&buf, &graph, 10).await?;
     Ok(())
 }
