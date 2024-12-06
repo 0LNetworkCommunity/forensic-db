@@ -189,20 +189,28 @@ impl BalanceTracker {
         Ok(format!("[{}]", list_literal))
     }
 
+    pub async fn submit_one_id(&self, id: u32, pool: &Graph) -> Result<u64> {
+        let data = self.to_cypher_map(id)?;
+        let query_literal = generate_cypher_query(data);
+        let query = Query::new(query_literal);
+        let mut result = pool.execute(query).await?;
+
+        let row = result.next().await?.context("no row returned")?;
+
+        let merged: u64 = row
+            .get("merged_relations")
+            .context("no unique_accounts field")?;
+
+        trace!("merged ledger in tx: {merged}");
+        Ok(merged)
+    }
     /// submit to db
     pub async fn submit_ledger(&self, pool: &Graph) -> Result<u64> {
         let mut merged_relations = 0u64;
         for id in self.0.keys() {
-            let data = self.to_cypher_map(*id)?;
-            let query_literal = generate_cypher_query(data);
-            let query = Query::new(query_literal);
-            let mut result = pool.execute(query).await?;
-
-            while let Some(r) = result.next().await? {
-                if let Ok(i) = r.get::<u64>("merged_relations") {
-                    trace!("merged ledger in tx: {i}");
-                    merged_relations += i;
-                };
+            match self.submit_one_id(*id, pool).await {
+                Ok(m) => merged_relations += m,
+                Err(e) => error!("could not submit user ledger: {}", e),
             }
         }
         Ok(merged_relations)
