@@ -5,9 +5,7 @@ use log::{error, info, warn};
 use neo4rs::{query, Graph};
 
 use crate::{
-    analytics::{enrich_account_funding, enrich_rms},
-    extract_exchange_orders, queue,
-    schema_exchange_orders::ExchangeOrder,
+    analytics::enrich_rms, extract_exchange_orders, queue, schema_exchange_orders::ExchangeOrder,
 };
 
 pub async fn swap_batch(
@@ -84,17 +82,17 @@ pub async fn impl_batch_tx_insert(pool: &Graph, batch_txs: &[ExchangeOrder]) -> 
     Ok((merged as u64, ignored as u64))
 }
 
-// pub async fn load_from_json(path: &Path, pool: &Graph, batch_size: usize) -> Result<(u64, u64)> {
-//     let mut orders = extract_exchange_orders::read_orders_from_file(path)?;
-//     // add RMS stats to each order
-//     enrich_rms::include_rms_stats(&mut orders);
-//     // find likely shill bids
-//     enrich_rms::process_sell_order_shill(&mut orders);
-//     enrich_rms::process_buy_order_shill(&mut orders);
+pub async fn load_from_json(path: &Path, pool: &Graph, batch_size: usize) -> Result<(u64, u64)> {
+    let mut orders = extract_exchange_orders::read_orders_from_file(path)?;
+    // add RMS stats to each order
+    enrich_rms::include_rms_stats(&mut orders);
+    // find likely shill bids
+    enrich_rms::process_sell_order_shill(&mut orders);
+    enrich_rms::process_buy_order_shill(&mut orders);
 
-//     let balances = enrich_account_funding::replay_transactions(&mut orders);
-//     let ledger_inserts = enrich_account_funding::submit_ledger(&balances, pool).await?;
-//     info!("exchange ledger relations inserted: {}", ledger_inserts);
+    // let balances = enrich_account_funding::replay_transactions(&mut orders);
+    // let ledger_inserts = enrich_account_funding::submit_ledger(&balances, pool).await?;
+    // info!("exchange ledger relations inserted: {}", ledger_inserts);
 
-//     swap_batch(&orders, pool, batch_size).await
-// }
+    swap_batch(&orders, pool, batch_size).await
+}
