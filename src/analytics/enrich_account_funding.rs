@@ -6,7 +6,7 @@ use neo4rs::{Graph, Query};
 // use neo4rs::{Graph, Query};
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::HashMap,
+    collections::BTreeMap,
     fs::{self, File},
     io::Read,
 };
@@ -25,14 +25,14 @@ pub struct AccountDataAlt {
 }
 
 #[derive(Default, Debug, Deserialize, Serialize)]
-pub struct UserLedger(pub HashMap<DateTime<Utc>, AccountDataAlt>);
+pub struct UserLedger(pub BTreeMap<DateTime<Utc>, AccountDataAlt>);
 
 #[derive(Default, Debug, Deserialize, Serialize)]
-pub struct BalanceTracker(pub HashMap<u32, UserLedger>); // Tracks data for each user
+pub struct BalanceTracker(pub BTreeMap<u32, UserLedger>); // Tracks data for each user
 
 impl BalanceTracker {
     pub fn new() -> Self {
-        BalanceTracker(HashMap::new())
+        BalanceTracker(BTreeMap::new())
     }
     /// Replay all transactions sequentially and return a balance tracker
     pub fn replay_transactions(&mut self, orders: &mut [ExchangeOrder]) -> Result<()> {
@@ -359,4 +359,135 @@ fn test_replay_transactions() {
     assert!(acc.daily_funding == 0.0);
     assert!(acc.daily_inflows == 15.0);
     assert!(acc.daily_outflows == 0.0);
+}
+
+#[test]
+fn test_example_user() -> Result<()> {
+    use crate::extract_exchange_orders;
+    use std::path::PathBuf;
+    let path = env!("CARGO_MANIFEST_DIR");
+    let buf = PathBuf::from(path).join("tests/fixtures/savedOlOrders2.json");
+    let mut orders = extract_exchange_orders::read_orders_from_file(buf).unwrap();
+    assert!(orders.len() == 25450);
+
+    orders.retain(|el| {
+        if el.filled_at < parse_date("2024-01-16") {
+            if el.user == 123 {
+                return true;
+            };
+            if el.accepter == 123 {
+                return true;
+            };
+        }
+        false
+    });
+
+    assert!(orders.len() == 68);
+
+    let mut tracker = BalanceTracker::new();
+    tracker.replay_transactions(&mut orders)?;
+
+    // check that running totals e.g. total_funded are always monotonically increasing.
+
+    // Dump case
+    // This user only had outflows of coins, and thus an increasing funding requirement.
+    let user = tracker.0.get(&123).unwrap();
+    assert!(user.0.len() == 68);
+
+    // btree is already sorted
+    let mut prev_funding = 0.0;
+    let mut prev_inflows = 0.0;
+    let mut prev_outflows = 0.0;
+    for (_d, acc) in user.0.iter() {
+        assert!(
+            acc.total_funded >= prev_funding,
+            "total_funded is not monotonically increasing"
+        );
+        assert!(
+            acc.total_inflows >= prev_inflows,
+            "total_inflows is not monotonically increasing"
+        );
+        assert!(
+            acc.total_outflows >= prev_outflows,
+            "total_outflows is not monotonically increasing"
+        );
+        prev_funding = acc.total_funded;
+        prev_inflows = acc.total_inflows;
+        prev_outflows = acc.total_outflows;
+    }
+
+    Ok(())
+}
+
+#[test]
+fn test_example_week() -> Result<()> {
+    // history for two users 123, and 336
+    use crate::extract_exchange_orders;
+    use std::path::PathBuf;
+    let path = env!("CARGO_MANIFEST_DIR");
+    let buf = PathBuf::from(path).join("tests/fixtures/savedOlOrders2.json");
+    let mut orders = extract_exchange_orders::read_orders_from_file(buf).unwrap();
+    assert!(orders.len() == 25450);
+
+    orders.retain(|el| el.filled_at < parse_date("2024-01-16"));
+    assert!(orders.len() == 956);
+
+    let mut tracker = BalanceTracker::new();
+    tracker.replay_transactions(&mut orders)?;
+
+    // // check that running totals e.g. total_funded are always monotonically increasing.
+
+    // Dump case
+    // This user only had outflows of coins, and thus an increasing funding requirement.
+    let user = tracker.0.get(&123).unwrap();
+
+    // btree is already sorted
+    let mut prev_funding = 0.0;
+    let mut prev_inflows = 0.0;
+    let mut prev_outflows = 0.0;
+    for (_d, acc) in user.0.iter() {
+        assert!(
+            acc.total_funded >= prev_funding,
+            "total_funded is not monotonically increasing"
+        );
+        assert!(
+            acc.total_inflows >= prev_inflows,
+            "total_inflows is not monotonically increasing"
+        );
+        assert!(
+            acc.total_outflows >= prev_outflows,
+            "total_outflows is not monotonically increasing"
+        );
+        prev_funding = acc.total_funded;
+        prev_inflows = acc.total_inflows;
+        prev_outflows = acc.total_outflows;
+    }
+
+    // Active Trading case, 336
+    // This user only had outflows of coins, and thus an increasing funding requirement.
+    let user = tracker.0.get(&336).unwrap();
+
+    // btree is already sorted
+    let mut prev_funding = 0.0;
+    let mut prev_inflows = 0.0;
+    let mut prev_outflows = 0.0;
+    for (_d, acc) in user.0.iter() {
+        assert!(
+            acc.total_funded >= prev_funding,
+            "total_funded is not monotonically increasing"
+        );
+        assert!(
+            acc.total_inflows >= prev_inflows,
+            "total_inflows is not monotonically increasing"
+        );
+        assert!(
+            acc.total_outflows >= prev_outflows,
+            "total_outflows is not monotonically increasing"
+        );
+        prev_funding = acc.total_funded;
+        prev_inflows = acc.total_inflows;
+        prev_outflows = acc.total_outflows;
+    }
+
+    Ok(())
 }
