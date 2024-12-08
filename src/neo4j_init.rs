@@ -35,6 +35,14 @@ pub static INDEX_SWAP_ID: &str =
 pub static INDEX_SWAP_TIME: &str =
     "CREATE INDEX swap_time IF NOT EXISTS FOR ()-[r:Swap]-() ON (r.filled_at)";
 
+pub static INDEX_EXCHANGE_LEDGER: &str = "
+    CREATE INDEX user_ledger IF NOT EXISTS FOR (ul:UserLedger) ON (ul.date)
+    ";
+
+pub static INDEX_EXCHANGE_LINK_LEDGER: &str = "
+    CREATE INDEX link_ledger IF NOT EXISTS FOR ()-[r:DailyLedger]->() ON (r.date)
+    ";
+
 /// get the testing neo4j connection
 pub async fn get_neo4j_localhost_pool(port: u16) -> Result<Graph> {
     let uri = format!("127.0.0.1:{port}");
@@ -67,6 +75,8 @@ pub async fn maybe_create_indexes(graph: &Graph) -> Result<()> {
         INDEX_TX_HASH,
         INDEX_TX_FUNCTION,
         INDEX_SWAP_ID,
+        INDEX_EXCHANGE_LEDGER,
+        INDEX_EXCHANGE_LINK_LEDGER,
     ])
     .await?;
     txn.commit().await?;

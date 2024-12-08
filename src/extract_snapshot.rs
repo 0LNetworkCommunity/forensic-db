@@ -10,7 +10,10 @@ use libra_backwards_compatibility::version_five::{
 use libra_storage::read_snapshot::{accounts_from_snapshot_backup, load_snapshot_manifest};
 use libra_types::{
     exports::AccountAddress,
-    move_resource::{libra_coin::LibraCoinStoreResource, wallet::SlowWalletResource},
+    move_resource::{
+        cumulative_deposits::CumulativeDepositResource, libra_coin::LibraCoinStoreResource,
+        wallet::SlowWalletResource,
+    },
 };
 use log::{error, info, warn};
 
@@ -110,6 +113,11 @@ pub async fn extract_current_snapshot(archive_path: &Path) -> Result<Vec<Warehou
             if let Some(sw) = el.get_resource::<SlowWalletResource>()? {
                 s.slow_wallet_locked = sw.unlocked;
                 s.slow_wallet_transferred = sw.transferred;
+            }
+
+            // Infer if it is a donor voice account
+            if let Some(_sw) = el.get_resource::<CumulativeDepositResource>()? {
+                s.donor_voice_acc = true;
             }
 
             warehouse_state.push(s);

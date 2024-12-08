@@ -6,7 +6,7 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use libra_forensic_db::{
-    analytics::{enrich_account_funding, enrich_rms},
+    analytics::{enrich_account_funding::BalanceTracker, enrich_rms},
     extract_exchange_orders, load_exchange_orders,
     neo4j_init::{get_neo4j_localhost_pool, maybe_create_indexes},
     schema_exchange_orders::ExchangeOrder,
@@ -72,9 +72,10 @@ fn test_enrich_account_funding() {
     let buf = PathBuf::from(path).join("tests/fixtures/savedOlOrders2.json");
     let mut orders = extract_exchange_orders::read_orders_from_file(buf).unwrap();
 
-    let balance = enrich_account_funding::replay_transactions(&mut orders);
+    let mut balance = BalanceTracker::new();
+    balance.replay_transactions(&mut orders).unwrap();
 
-    dbg!(balance.accounts.len());
+    assert!(balance.0.len() == 3957);
 }
 
 #[test]
@@ -171,5 +172,21 @@ async fn e2e_swap_data() -> Result<()> {
         assert!(num == 850);
     }
 
+    Ok(())
+}
+
+#[ignore]
+#[tokio::test]
+async fn test_entry_point_exchange_load() -> Result<()> {
+    libra_forensic_db::log_setup();
+
+    let c = start_neo4j_container();
+    let port = c.get_host_port_ipv4(7687);
+    let graph = get_neo4j_localhost_pool(port).await?;
+    maybe_create_indexes(&graph).await?;
+
+    let path = env!("CARGO_MANIFEST_DIR");
+    let buf = PathBuf::from(path).join("tests/fixtures/savedOlOrders2.json");
+    load_exchange_orders::load_from_json(&buf, &graph, 10).await?;
     Ok(())
 }

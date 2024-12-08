@@ -76,7 +76,7 @@ async fn test_tx_insert() -> Result<()> {
 }
 
 #[tokio::test]
-async fn test_init_indices() {
+async fn test_init_indexes() {
     let c = start_neo4j_container();
     let port = c.get_host_port_ipv4(7687);
     let graph = get_neo4j_localhost_pool(port)
