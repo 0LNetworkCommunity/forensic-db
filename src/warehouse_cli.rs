@@ -1,6 +1,6 @@
 use anyhow::{bail, Result};
 use clap::{Parser, Subcommand};
-use log::{info, warn};
+use log::{error, info, warn};
 use neo4rs::Graph;
 use serde_json::json;
 use std::path::PathBuf;
@@ -59,7 +59,7 @@ pub enum Sub {
         batch_size: Option<usize>,
     },
     /// process and load a single archive
-    LoadOne {
+    IngestOne {
         #[clap(long, short('d'))]
         /// location of archive
         archive_dir: PathBuf,
@@ -126,32 +126,28 @@ impl WarehouseCli {
                 neo4j_init::maybe_create_indexes(&pool).await?;
                 ingest_all(&map, &pool, self.clear_queue, batch_size.unwrap_or(250)).await?;
             }
-            Sub::LoadOne {
+            Sub::IngestOne {
                 archive_dir,
                 batch_size,
-            } => match scan_dir_archive(archive_dir, None)?.0.get(archive_dir) {
-                Some(man) => {
+            } => {
+                let am = scan_dir_archive(archive_dir, None)?;
+                if am.0.is_empty() {
+                    error!("cannot find .manifest file under {}", archive_dir.display());
+                }
+                for (_p, man) in am.0 {
                     let pool = try_db_connection_pool(self).await?;
                     neo4j_init::maybe_create_indexes(&pool).await?;
 
-                    try_load_one_archive(man, &pool, batch_size.unwrap_or(250)).await?;
+                    try_load_one_archive(&man, &pool, batch_size.unwrap_or(250)).await?;
                 }
-                None => {
-                    bail!(format!(
-                        "ERROR: cannot find .manifest file under {}",
-                        archive_dir.display()
-                    ));
-                }
-            },
+            }
             Sub::Check { archive_dir } => {
-                match scan_dir_archive(archive_dir, None)?.0.get(archive_dir) {
-                    Some(_) => todo!(),
-                    None => {
-                        bail!(format!(
-                            "ERROR: cannot find .manifest file under {}",
-                            archive_dir.display()
-                        ));
-                    }
+                let am = scan_dir_archive(archive_dir, None)?;
+                if am.0.is_empty() {
+                    error!("cannot find .manifest file under {}", archive_dir.display());
+                }
+                for (p, man) in am.0 {
+                    info!("manifest found at {} \n {:?}", p.display(), man);
                 }
             }
             Sub::EnrichExchange {

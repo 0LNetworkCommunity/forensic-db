@@ -8,8 +8,8 @@ use crate::{
     scan::{ArchiveMap, ManifestInfo},
 };
 
-use anyhow::{Context, Result};
-use log::{info, warn};
+use anyhow::{bail, Context, Result};
+use log::{error, info, warn};
 use neo4rs::Graph;
 
 /// takes all the archives from a map, and tries to load them sequentially
@@ -74,7 +74,10 @@ pub async fn try_load_one_archive(
         crate::scan::BundleContent::Unknown => todo!(),
         crate::scan::BundleContent::StateSnapshot => {
             let snaps = match man.version {
-                crate::scan::FrameworkVersion::Unknown => todo!(),
+                crate::scan::FrameworkVersion::Unknown => {
+                    error!("no framework version detected");
+                    bail!("could not load archive from manifest");
+                }
                 crate::scan::FrameworkVersion::V5 => extract_v5_snapshot(&man.archive_dir).await?,
                 crate::scan::FrameworkVersion::V6 => {
                     extract_current_snapshot(&man.archive_dir).await?

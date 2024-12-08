@@ -8,6 +8,9 @@ Start a Neo4j instance. Choose a password `<password>`. Allow it to create the d
 export LIBRA_GRAPH_DB_URI='neo4j://localhost'
 export LIBRA_GRAPH_DB_USER='neo4j'
 export LIBRA_GRAPH_DB_PASS=<password>
+
+# optionally export trace logging
+export RUST_LOG=trace
 ```
 
 Import the sample exchange orders
