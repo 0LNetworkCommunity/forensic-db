@@ -233,7 +233,7 @@ pub fn generate_cypher_query(map: String) -> String {
         r#"
             UNWIND {map} AS account
             MERGE (sa:SwapAccount {{swap_id: account.swap_id}})
-            MERGE (ul:UserLedger {{date: datetime(account.date)}})
+            MERGE (ul:UserLedger {{swap_id: account.swap_id, date: datetime(account.date)}})
             SET ul.current_balance = account.current_balance,
                 ul.total_funded = account.total_funded,
                 ul.total_inflows = account.total_inflows,
