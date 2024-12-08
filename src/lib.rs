@@ -1,6 +1,7 @@
 pub mod analytics;
 pub mod batch_tx_type;
 pub mod cypher_templates;
+pub mod date_util;
 pub mod decode_entry_function;
 pub mod enrich_exchange_onboarding;
 pub mod enrich_whitepages;

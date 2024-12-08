@@ -3,12 +3,10 @@ use anyhow::Result;
 use std::path::PathBuf;
 
 use libra_forensic_db::{
-    analytics::{
-        self,
-        enrich_account_funding::{parse_date, BalanceTracker},
-    },
+    analytics::{self, enrich_account_funding::BalanceTracker, offline_matching},
+    date_util::parse_date,
     extract_exchange_orders, load_exchange_orders,
-    neo4j_init::{get_neo4j_localhost_pool, maybe_create_indexes},
+    neo4j_init::{self, get_neo4j_localhost_pool, maybe_create_indexes},
 };
 use support::neo4j_testcontainer::start_neo4j_container;
 
@@ -229,6 +227,24 @@ async fn test_submit_exchange_ledger_all() -> Result<()> {
     }
 
     assert!(i == user.0.len());
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_offline_analytics() -> Result<()> {
+    libra_forensic_db::log_setup();
+    let (uri, user, pass) = neo4j_init::get_credentials_from_env()?;
+    let pool = neo4j_init::get_neo4j_remote_pool(&uri, &user, &pass).await?;
+
+    let start_time = parse_date("2024-01-01");
+    let end_time = parse_date("2024-01-10");
+
+    let r = offline_matching::get_date_range_deposits(&pool, 20, start_time, end_time).await?;
+    // dbg!(&r);
+
+    let r = offline_matching::get_min_funding(&pool, 20, start_time, end_time).await?;
+
 
     Ok(())
 }
