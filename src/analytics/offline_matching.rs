@@ -1,5 +1,7 @@
+use std::collections::BTreeMap;
+
 use anyhow::Result;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Duration, Utc};
 use diem_types::account_address::AccountAddress;
 use neo4rs::Graph;
 use serde::{Deserialize, Serialize};
@@ -98,4 +100,59 @@ pub async fn get_min_funding(
         // dbg!(&d);
     }
     Ok(min_funding)
+}
+
+#[derive(Clone, Default, Debug)]
+pub struct Candidates {
+    maybe: Vec<AccountAddress>,
+    impossible: Vec<AccountAddress>,
+}
+
+#[derive(Clone, Default, Debug)]
+pub struct Matching(pub BTreeMap<u32, Candidates>);
+
+impl Matching {
+    pub fn new() -> Self {
+        Matching(BTreeMap::new())
+    }
+
+    pub fn match_deposit_to_funded(&mut self, deposits: Vec<Deposit>, funded: Vec<MinFunding>) {
+        for f in funded.iter() {
+            deposits.iter().for_each(|d| {
+                let candidates = self.0.entry(f.user_id).or_default();
+                // only addresses with minimum funded could be a Maybe
+                if d.deposited >= f.funded {
+                    candidates.maybe.push(d.account);
+                } else {
+                    candidates.impossible.push(d.account);
+                }
+            });
+        }
+    }
+}
+
+pub async fn rip_range(pool: &Graph, start: DateTime<Utc>, end: DateTime<Utc>) -> Result<Matching> {
+    let mut matches = Matching::new();
+
+    // loop each day.
+    for d in days_in_range(start, end) {
+        let deposits = get_date_range_deposits(pool, 100, start, d).await?;
+        let funded = get_min_funding(pool, 20, start, d).await?;
+
+        matches.match_deposit_to_funded(deposits, funded);
+    }
+
+    Ok(matches)
+}
+
+fn days_in_range(start: DateTime<Utc>, end: DateTime<Utc>) -> Vec<DateTime<Utc>> {
+    let mut days = Vec::new();
+    let mut current = start;
+
+    while current <= end {
+        days.push(current);
+        current += Duration::days(1); // Increment by one day
+    }
+
+    days
 }
