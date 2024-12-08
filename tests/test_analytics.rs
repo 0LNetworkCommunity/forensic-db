@@ -188,22 +188,20 @@ async fn test_submit_exchange_ledger_all() -> Result<()> {
 
     orders.retain(|el| el.filled_at < parse_date("2024-01-16"));
 
-    dbg!(&orders.len());
-    // assert!(orders.len() == 68);
+    assert!(orders.len() == 956);
 
     let mut tracker = BalanceTracker::new();
     tracker.replay_transactions(&mut orders)?;
-    dbg!(&tracker.0.len());
     let days_records = tracker.0.len();
-    // assert!(days_records == 47);
+    assert!(days_records == 367); // each users * dates with txs
 
     let user = tracker.0.get(&123).unwrap();
-    // assert!(user.0.len() == 68);
+    assert!(user.0.len() == 68);
 
     let res = tracker.submit_ledger(&graph).await?;
 
-    // the number of transactions merged should equal the number of orders
-    // assert!(res == orders.len() as u64);
+    // there should be double len of ledgers, since user and accepter will have a ledger
+    assert!(res == (orders.len() * 2) as u64);
 
     // check there are transaction records with function args.
     let cypher_query = neo4rs::query(
@@ -224,15 +222,13 @@ async fn test_submit_exchange_ledger_all() -> Result<()> {
     while let Some(r) = result.next().await? {
         if let Ok(s) = r.get::<u64>("funded") {
             i += 1;
-            dbg!(&prev_funding);
 
-            dbg!(&s);
             assert!(s >= prev_funding, "funded totals should always increase");
             prev_funding = s;
         }
     }
 
-    dbg!(&i);
+    assert!(i == user.0.len());
 
     Ok(())
 }
