@@ -1,4 +1,9 @@
-use std::{collections::BTreeMap, fs::File, io::Write, path::{Path, PathBuf}};
+use std::{
+    collections::BTreeMap,
+    fs::{self, File},
+    io::Write,
+    path::{Path, PathBuf},
+};
 
 use anyhow::{bail, Result};
 use chrono::{DateTime, Duration, Utc};
@@ -139,12 +144,13 @@ pub async fn get_one_exchange_user(
     Ok(min_funding)
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Matching {
     pub definite: BTreeMap<u32, AccountAddress>,
     pub pending: BTreeMap<u32, Candidates>,
 }
 
-#[derive(Clone, Default, Debug)]
+#[derive(Clone, Default, Debug, Serialize, Deserialize)]
 pub struct Candidates {
     pub maybe: Vec<AccountAddress>,
     pub impossible: Vec<AccountAddress>,
@@ -195,7 +201,7 @@ impl Matching {
         top_n: u64,
         start: DateTime<Utc>,
         end: DateTime<Utc>,
-        save_file: Option<PathBuf>,
+        save_dir: Option<PathBuf>,
     ) -> Result<()> {
         // expand the search
         // increase the search of top users by funding by expanding the window
@@ -203,15 +209,16 @@ impl Matching {
         // the search space gets smaller
         for d in days_in_range(start, end) {
             let next_list = get_exchange_users(&pool, top_n, start, d).await?;
+            dbg!(&next_list.len());
 
             for u in next_list {
                 let _r = self.search(&pool, u.user_id, start, end).await;
 
                 // after each loop update the file
-                if let Some(p) = &save_file {
-                  self.write_definite_to_file(&p)?;
+                if let Some(p) = &save_dir {
+                    let _ = self.write_definite_to_file(&p.join("definite.json"));
+                    let _ = self.write_cache_to_file(&p);
                 }
-
             }
         }
 
@@ -281,7 +288,7 @@ impl Matching {
             }
         }
 
-          println!("user: {}, maybe: {}", &user.user_id, &pending.maybe.len());
+        println!("user: {}, maybe: {}", &user.user_id, &pending.maybe.len());
 
         if pending.maybe.len() == 1 {
             // we found a definite match, update it so the next loop doesn't include it
@@ -289,13 +296,34 @@ impl Matching {
                 .insert(user.user_id, *pending.maybe.first().unwrap());
         }
 
-
         // candidates
+    }
+
+    pub fn write_cache_to_file(&self, dir: &Path) -> Result<()> {
+        let json_string =
+            serde_json::to_string(&self).expect("Failed to serialize");
+
+        // Save the JSON string to a file
+        let path = dir.join("cache.json");
+        let mut file = File::create(&path)?;
+        file.write_all(json_string.as_bytes())?;
+
+        println!("Cache saved: {}", path.display());
+        Ok(())
+    }
+    pub fn read_cache_from_file(dir: &Path) -> Result<Self> {
+        // Read the file content into a string
+        let file_path = dir.join("cache.json");
+        let json_string = fs::read_to_string(file_path)?;
+
+        // Deserialize the JSON string into a BTreeMap
+        Ok(serde_json::from_str(&json_string)?)
     }
 
     pub fn write_definite_to_file(&self, path: &Path) -> Result<()> {
         // Serialize the BTreeMap to a JSON string
-        let json_string = serde_json::to_string_pretty(&self.definite).expect("Failed to serialize");
+        let json_string =
+            serde_json::to_string_pretty(&self.definite).expect("Failed to serialize");
 
         // Save the JSON string to a file
         let mut file = File::create(path)?;

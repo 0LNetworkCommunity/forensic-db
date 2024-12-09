@@ -3,7 +3,11 @@ use anyhow::Result;
 use std::path::PathBuf;
 
 use libra_forensic_db::{
-    analytics::{self, enrich_account_funding::BalanceTracker, offline_matching},
+    analytics::{
+        self,
+        enrich_account_funding::BalanceTracker,
+        offline_matching::{self, Matching},
+    },
     date_util::parse_date,
     extract_exchange_orders, load_exchange_orders,
     neo4j_init::{self, get_neo4j_localhost_pool, maybe_create_indexes},
@@ -255,13 +259,19 @@ async fn test_offline_analytics_matching() -> Result<()> {
     let (uri, user, pass) = neo4j_init::get_credentials_from_env()?;
     let pool = neo4j_init::get_neo4j_remote_pool(&uri, &user, &pass).await?;
 
+    let dir: PathBuf = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
 
-    let mut m = offline_matching::Matching::new();
+    let mut m = Matching::read_cache_from_file(&dir).unwrap_or(Matching::new());
 
-    let p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let p = p.join("definite.json");
-
-    let _ = m.wide_search(&pool, 10, parse_date("2024-01-07"), parse_date("2024-03-13"), Some(p)).await;
+    let _ = m
+        .wide_search(
+            &pool,
+            25,
+            parse_date("2024-01-07"),
+            parse_date("2024-07-22"),
+            Some(dir),
+        )
+        .await;
     // let initial_list =
     //     offline_matching::get_exchange_users(&pool, 10, start_time, parse_date("2024-01-09"))
     //         .await?;
@@ -288,7 +298,7 @@ async fn test_offline_analytics_matching() -> Result<()> {
     //   }
 
     // dbg!(&m.definite);
-  // }
+    // }
 
     Ok(())
 }
