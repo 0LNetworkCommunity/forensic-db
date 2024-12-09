@@ -271,9 +271,13 @@ impl Matching {
             // is also not already discovered
             !self.definite.values().any(|found| found == &el.account)
             {
+              if !eval.contains(&el.account) {
                 eval.push(el.account)
+              }
             } else {
-                pending.impossible.push(el.account)
+                if !pending.impossible.contains(&value) {
+                    pending.impossible.push(el.account)
+                }
             }
         });
 
@@ -300,8 +304,7 @@ impl Matching {
     }
 
     pub fn write_cache_to_file(&self, dir: &Path) -> Result<()> {
-        let json_string =
-            serde_json::to_string(&self).expect("Failed to serialize");
+        let json_string = serde_json::to_string(&self).expect("Failed to serialize");
 
         // Save the JSON string to a file
         let path = dir.join("cache.json");
@@ -338,41 +341,6 @@ pub fn sort_funded(funded: &mut [MinFunding]) {
     // sort descending
     funded.sort_by(|a, b| b.funded.partial_cmp(&a.funded).unwrap());
 }
-
-// pub fn maybe_match_deposit_to_funded(
-//     deposits: Vec<Deposit>,
-//     funded: Vec<MinFunding>,
-// ) -> Option<(u32, AccountAddress)> {
-//     // // sort descending
-//     // funded.sort_by(|a, b| b.funded.partial_cmp(&a.funded).unwrap());
-
-//     // // find the next two which are not identified, to disambiguate.
-
-//     for f in funded {
-//         // dbg!(&f);
-//         let mut candidate_depositors = deposits.clone();
-//         candidate_depositors.retain(|el| el.deposited >= f.funded);
-//         // dbg!(&candidate_depositors);
-
-//         if candidate_depositors.len() == 1 {
-//             return Some((f.user_id, candidate_depositors.pop().unwrap().account));
-//         }
-//         // deposits.iter().for_each(|d| {
-//         //     // let mut candidates = self.pending.0.entry(f.user_id).or_default();
-
-//         //     // only addresses with minimum funded could be a Maybe
-//         //     if d.deposited >= f.funded {
-//         //         // if we haven't previously marked this as impossible, add it as a maybe
-//         //         if !candidates.impossible.contains(&d.account) {
-//         //             candidates.maybe.push(d.account);
-//         //         }
-//         //     } else {
-//         //         candidates.impossible.push(d.account);
-//         //     }
-//         // });
-//     }
-//     None
-// }
 
 pub fn days_in_range(start: DateTime<Utc>, end: DateTime<Utc>) -> Vec<DateTime<Utc>> {
     let mut days = Vec::new();
