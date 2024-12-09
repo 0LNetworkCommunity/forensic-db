@@ -243,7 +243,7 @@ async fn test_offline_analytics() -> Result<()> {
     let _r = offline_matching::get_date_range_deposits(&pool, 20, start_time, end_time).await?;
     // dbg!(&r);
 
-    let _r = offline_matching::get_min_funding(&pool, 20, start_time, end_time).await?;
+    let _r = offline_matching::get_exchange_users(&pool, 20, start_time, end_time).await?;
 
     Ok(())
 }
@@ -251,15 +251,44 @@ async fn test_offline_analytics() -> Result<()> {
 #[tokio::test]
 async fn test_offline_analytics_matching() -> Result<()> {
     libra_forensic_db::log_setup();
+
     let (uri, user, pass) = neo4j_init::get_credentials_from_env()?;
     let pool = neo4j_init::get_neo4j_remote_pool(&uri, &user, &pass).await?;
 
-    let start_time = parse_date("2024-01-01");
-    let end_time = parse_date("2024-01-10");
 
-    let r = offline_matching::rip_range(&pool, start_time, end_time).await?;
+    let mut m = offline_matching::Matching::new();
 
-    dbg!(&r.0.len());
+    let p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let p = p.join("definite.json");
+
+    let _ = m.wide_search(&pool, 10, parse_date("2024-01-07"), parse_date("2024-03-13"), Some(p)).await;
+    // let initial_list =
+    //     offline_matching::get_exchange_users(&pool, 10, start_time, parse_date("2024-01-09"))
+    //         .await?;
+
+    // for u in initial_list {
+    //     let r = m
+    //         .search(&pool, u.user_id, start_time, parse_date("2024-03-13"))
+    //         .await;
+    //     // dbg!(&r);
+    // }
+
+    dbg!(&m.definite);
+
+    // // expand the search
+    // for d in offline_matching::days_in_range(start_time, parse_date("2024-03-13")) {
+    //   let next_list = offline_matching::get_exchange_users(&pool, 10, start_time, d)
+    //           .await?;
+
+    //   for u in next_list {
+    //       let r = m
+    //           .search(&pool, u.user_id, start_time, parse_date("2024-03-13"))
+    //           .await;
+    //       dbg!(&r);
+    //   }
+
+    // dbg!(&m.definite);
+  // }
 
     Ok(())
 }
