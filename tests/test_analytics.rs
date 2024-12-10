@@ -261,44 +261,19 @@ async fn test_offline_analytics_matching() -> Result<()> {
 
     let dir: PathBuf = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
 
-    let mut m = Matching::read_cache_from_file(&dir).unwrap_or(Matching::new());
+    let mut m = Matching::read_cache_from_file(&dir).unwrap_or_default();
 
     let _ = m
-        .wide_search(
+        .depth_search_by_top_n_accounts(
             &pool,
-            25,
             parse_date("2024-01-07"),
             parse_date("2024-07-22"),
             Some(dir),
         )
         .await;
-    // let initial_list =
-    //     offline_matching::get_exchange_users(&pool, 10, start_time, parse_date("2024-01-09"))
-    //         .await?;
 
-    // for u in initial_list {
-    //     let r = m
-    //         .search(&pool, u.user_id, start_time, parse_date("2024-03-13"))
-    //         .await;
-    //     // dbg!(&r);
-    // }
 
     dbg!(&m.definite);
-
-    // // expand the search
-    // for d in offline_matching::days_in_range(start_time, parse_date("2024-03-13")) {
-    //   let next_list = offline_matching::get_exchange_users(&pool, 10, start_time, d)
-    //           .await?;
-
-    //   for u in next_list {
-    //       let r = m
-    //           .search(&pool, u.user_id, start_time, parse_date("2024-03-13"))
-    //           .await;
-    //       dbg!(&r);
-    //   }
-
-    // dbg!(&m.definite);
-    // }
 
     Ok(())
 }
