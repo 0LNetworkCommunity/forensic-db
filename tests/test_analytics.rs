@@ -267,7 +267,7 @@ async fn test_offline_analytics_matching() -> Result<()> {
         .depth_search_by_top_n_accounts(
             &pool,
             parse_date("2024-01-07"),
-            parse_date("2024-07-22"),
+            parse_date("2024-03-13"),
             Some(dir),
         )
         .await;

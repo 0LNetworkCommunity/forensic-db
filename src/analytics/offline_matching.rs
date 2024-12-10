@@ -207,12 +207,12 @@ impl Matching {
         end: DateTime<Utc>,
         save_dir: Option<PathBuf>,
     ) -> Result<()> {
-        let mut top_n = 10;
-        while top_n < 50 {
+        let mut top_n = 3;
+        while top_n < 20 {
             let _ = self
                 .breadth_search_by_dates(pool, top_n, start, end, &save_dir)
                 .await; // don't error
-            top_n += 5;
+            top_n += 3;
         }
         Ok(())
     }
@@ -233,7 +233,7 @@ impl Matching {
         // this may retry a number of users, but with more users discovered
         // the search space gets smaller
         for d in days_in_range(start, end) {
-            info!("day: {}", d);
+            println!("day: {}", d);
             let next_list = get_exchange_users(pool, top_n, start, d).await?;
 
             // TODO: pick top of deposits
