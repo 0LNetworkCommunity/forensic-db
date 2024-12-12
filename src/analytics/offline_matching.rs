@@ -369,7 +369,7 @@ impl Matching {
 
                 // after each loop update the file
                 if let Some(p) = &save_dir {
-                    let _ = self.write_definite_to_file(&p.join("definite.json"));
+                    let _ = self.write_definite_to_file(p);
                     let _ = self.write_cache_to_file(p);
                 }
             }
@@ -406,7 +406,6 @@ impl Matching {
     ) -> Result<()> {
         let mut user_list = get_exchange_users_only_outflows(pool).await?;
         user_list.sort_by(|a, b| b.funded.partial_cmp(&a.funded).unwrap());
-        dbg!(&user_list.len());
 
         let deposits = get_date_range_deposits_alt(pool, 1000, start, end)
             .await
@@ -529,8 +528,9 @@ impl Matching {
         Ok(serde_json::from_str(&json_string)?)
     }
 
-    pub fn write_definite_to_file(&self, path: &Path) -> Result<()> {
+    pub fn write_definite_to_file(&self, dir: &Path) -> Result<()> {
         // Serialize the BTreeMap to a JSON string
+        let path = &dir.join("definite.json");
         let json_string =
             serde_json::to_string_pretty(&self.definite).expect("Failed to serialize");
 

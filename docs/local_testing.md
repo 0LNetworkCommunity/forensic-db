@@ -28,3 +28,17 @@ RETURN COUNT(DISTINCT(r))
 ```
 
 Should return `25450`
+
+# Testing offline analytics
+NOTE: you must have a fully populated DB to run these queries
+
+Replay the funding requirement on an exchange and match to deposits. This is slow.
+```
+cargo r analytics trades-matching --start-day 2024-01-07 --end-day 2024-01-15 --replay-balances 10
+
+```
+
+Match simple dumps
+```
+cargo r analytics trades-matching --start-day 2024-01-07 --end-day 2024-01-15 --match-simple-dumps 1.01
+```
