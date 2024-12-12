@@ -8,7 +8,7 @@ use std::{
 use anyhow::{bail, Result};
 use chrono::{DateTime, Duration, Utc};
 use diem_types::account_address::AccountAddress;
-use log::{info, trace};
+use log::{info, trace, warn};
 use neo4rs::Graph;
 use serde::{Deserialize, Serialize};
 
@@ -202,8 +202,7 @@ pub async fn get_exchange_users(
 pub async fn get_exchange_users_only_outflows(pool: &Graph) -> Result<Vec<MinFunding>> {
     let mut min_funding = vec![];
 
-    let q = format!(
-        r#"
+    let q = r#"
         MATCH (e:SwapAccount)-[]-(u:UserLedger)
         WHERE u.`total_inflows` = 0
         AND u.total_outflows = u.total_funded // total outflows are only what was funded
@@ -211,11 +210,8 @@ pub async fn get_exchange_users_only_outflows(pool: &Graph) -> Result<Vec<MinFun
         WITH distinct(e.swap_id) AS user_id, max(u.`total_funded`) AS funded
         RETURN user_id, funded
         ORDER BY funded DESC
-        "#,
-        // start.to_rfc3339(),
-        // end.to_rfc3339(),
-        // top_n,
-    );
+        "#
+    .to_string();
     let cypher_query = neo4rs::query(&q);
 
     // Execute the query
@@ -401,6 +397,24 @@ impl Matching {
         bail!("could not find a candidate")
     }
 
+    pub async fn search_dumps(
+        &mut self,
+        pool: &Graph,
+        start: DateTime<Utc>,
+        end: DateTime<Utc>,
+        tolerance: f64,
+    ) -> Result<()> {
+        let mut user_list = get_exchange_users_only_outflows(pool).await?;
+        user_list.sort_by(|a, b| b.funded.partial_cmp(&a.funded).unwrap());
+        dbg!(&user_list.len());
+
+        let deposits = get_date_range_deposits_alt(pool, 1000, start, end)
+            .await
+            .unwrap_or_default();
+
+        self.match_exact_sellers(&user_list, &deposits, tolerance);
+        Ok(())
+    }
     pub fn match_exact_sellers(
         &mut self,
         user_list: &[MinFunding],
@@ -489,10 +503,21 @@ impl Matching {
 
         // Save the JSON string to a file
         let path = dir.join("cache.json");
+
         let mut file = File::create(&path)?;
+
         file.write_all(json_string.as_bytes())?;
 
         trace!("Cache saved: {}", path.display());
+        Ok(())
+    }
+    pub fn clear_cache(dir: &Path) -> Result<()> {
+        warn!("clearing local cache");
+        // Save the JSON string to a file
+        let path = dir.join("cache.json");
+        fs::remove_file(&path)?;
+
+        info!("Cache cleared: {}", path.display());
         Ok(())
     }
     pub fn read_cache_from_file(dir: &Path) -> Result<Self> {
