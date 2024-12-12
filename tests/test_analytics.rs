@@ -244,9 +244,6 @@ async fn test_offline_analytics() -> Result<()> {
     let start_time = parse_date("2024-01-01");
     let end_time = parse_date("2024-07-10");
 
-    let _r = offline_matching::get_date_range_deposits(&pool, 20, start_time, end_time).await?;
-    // dbg!(&r);
-
     let _r = offline_matching::get_exchange_users(&pool, 20, start_time, end_time).await?;
 
     Ok(())
@@ -268,6 +265,7 @@ async fn test_offline_analytics_matching() -> Result<()> {
             &pool,
             parse_date("2024-01-07"),
             parse_date("2024-07-22"),
+            75,
             Some(dir),
         )
         .await;
@@ -279,6 +277,52 @@ async fn test_offline_analytics_matching() -> Result<()> {
 
 #[tokio::test]
 async fn test_easy_sellers() -> Result<()> {
+    libra_forensic_db::log_setup();
+
+    let (uri, user, pass) = neo4j_init::get_credentials_from_env()?;
+    let pool = neo4j_init::get_neo4j_remote_pool(&uri, &user, &pass).await?;
+
+    let mut user_list = offline_matching::get_exchange_users_only_outflows(&pool).await?;
+    user_list
+        .sort_by(|a, b: &offline_matching::MinFunding| b.funded.partial_cmp(&a.funded).unwrap());
+    dbg!(&user_list.len());
+
+    let deposits = offline_matching::get_date_range_deposits_alt(
+        &pool,
+        1000,
+        parse_date("2024-01-07"),
+        parse_date("2024-07-22"),
+    )
+    .await
+    .unwrap_or_default();
+
+    let dir: PathBuf = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+
+    let mut m = Matching::read_cache_from_file(&dir).unwrap_or_default();
+
+    m.match_exact_sellers(&user_list, &deposits, 1.05);
+
+    dbg!(&m.definite.len());
+
+    dbg!(&m.definite);
+    m.write_cache_to_file(&dir)?;
+
+    // let _ = m
+    //     .depth_search_by_top_n_accounts(
+    //         &pool,
+    //         parse_date("2024-01-07"),
+    //         parse_date("2024-03-15"),
+    //         101,
+    //         Some(dir),
+    //     )
+    //     .await;
+    // dbg!(&m.definite.len());
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_easy_sellers_combined() -> Result<()> {
     libra_forensic_db::log_setup();
 
     let (uri, user, pass) = neo4j_init::get_credentials_from_env()?;
@@ -311,23 +355,11 @@ async fn test_easy_sellers() -> Result<()> {
             &pool,
             parse_date("2024-01-07"),
             parse_date("2024-07-22"),
+            10,
             Some(dir),
         )
         .await;
     dbg!(&m.definite.len());
 
-    // let _ = m
-    //     .depth_search_by_top_n_accounts(
-    //         &pool,
-    //         parse_date("2024-01-07"),
-    //         parse_date("2024-07-22"),
-    //         Some(dir),
-    //     )
-    //     .await;
-
-    // dbg!(&m.definite);
-
     Ok(())
 }
-
-//

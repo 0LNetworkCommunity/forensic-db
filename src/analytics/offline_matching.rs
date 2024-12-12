@@ -206,6 +206,8 @@ pub async fn get_exchange_users_only_outflows(pool: &Graph) -> Result<Vec<MinFun
         r#"
         MATCH (e:SwapAccount)-[]-(u:UserLedger)
         WHERE u.`total_inflows` = 0
+        AND u.total_outflows = u.total_funded // total outflows are only what was funded
+        AND u.current_balance = 0 // after account is plausibly depleted
         WITH distinct(e.swap_id) AS user_id, max(u.`total_funded`) AS funded
         RETURN user_id, funded
         ORDER BY funded DESC
@@ -330,10 +332,11 @@ impl Matching {
         pool: &Graph,
         start: DateTime<Utc>,
         end: DateTime<Utc>,
+        mut top_n: u64,
         save_dir: Option<PathBuf>,
     ) -> Result<()> {
-        let mut top_n = 5;
-        while top_n < 25 {
+        let top_n_limit = 101;
+        while top_n < top_n_limit {
             let _ = self
                 .breadth_search_by_dates(pool, top_n, start, end, &save_dir)
                 .await; // don't error
@@ -358,26 +361,12 @@ impl Matching {
         // this may retry a number of users, but with more users discovered
         // the search space gets smaller
         for d in days_in_range(start, end) {
-            println!("day: {}", d);
+            info!("day: {}", d);
             let next_list = get_exchange_users(pool, top_n, start, d).await?;
-
-            // // TODO: pick top of deposits
-            // let deposits = get_date_range_deposits(pool, 1000, start, d).await.unwrap_or_default();
-
-            // if next_list.len() > 5 {
-            //   // dbg!("next_list");
-            //   dbg!(&next_list[..5]);
-            // }
-            // dbg!(&next_list);
 
             let deposits = get_date_range_deposits_alt(pool, 1000, start, d)
                 .await
                 .unwrap_or_default();
-
-            // if deposits.len() > 5 {
-            //   dbg!("alt");
-            //   dbg!(&deposits[..5]);
-            // }
 
             for u in next_list {
                 let _r = self.search(&u, &deposits).await;
@@ -438,13 +427,18 @@ impl Matching {
                 .collect();
 
             pending.maybe = candidates;
+        });
+
+        // after all users processed, try to find matches
+        user_list.iter().for_each(|user| {
+            let pending = self.pending.entry(user.user_id).or_default();
 
             if pending.maybe.len() == 1 {
                 // we found a definite match, update it so the next loop doesn't include it
                 self.definite
                     .insert(user.user_id, *pending.maybe.first().unwrap());
             }
-        })
+        });
     }
 
     pub fn eliminate_candidates(&mut self, user: &MinFunding, deposits: &[Deposit]) {
@@ -453,7 +447,7 @@ impl Matching {
 
         let mut eval: Vec<AccountAddress> = vec![];
         deposits.iter().for_each(|el| {
-            dbg!(&el);
+            // dbg!(&el);
             if el.deposited >= user.funded &&
             // must not already have been tagged impossible
             !pending.impossible.contains(&el.account) &&
