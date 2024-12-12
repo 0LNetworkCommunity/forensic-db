@@ -115,8 +115,10 @@ pub enum AnalyticsSub {
 
     TradesMatching {
         #[clap(long)]
+        /// start day (exclusive) of trades YYYY-MM-DD
         start_day: String,
         #[clap(long)]
+        /// end day (exclusive) of trades YYYY-MM-DD
         end_day: String,
 
         #[clap(long)]
@@ -234,13 +236,16 @@ impl WarehouseCli {
                     start_day,
                     end_day,
                 } => {
-                    let pool = try_db_connection_pool(self).await?;
-
                     let dir: PathBuf = PathBuf::from(".");
 
                     if *clear_cache {
                         Matching::clear_cache(&dir)?;
                     }
+
+                    if replay_balances.is_none() && match_simple_dumps.is_none() {
+                        bail!("nothing to do. Must enter --replay-balance or --match-simple-dumps")
+                    }
+                    let pool = try_db_connection_pool(self).await?;
 
                     let mut m = Matching::read_cache_from_file(&dir).unwrap_or_default();
                     if let Some(top_n) = replay_balances {
@@ -250,7 +255,7 @@ impl WarehouseCli {
                                 date_util::parse_date(start_day),
                                 date_util::parse_date(end_day),
                                 *top_n,
-                                Some(dir),
+                                Some(dir.clone()),
                             )
                             .await;
                     }
@@ -265,7 +270,10 @@ impl WarehouseCli {
                         .await?;
                     }
 
-                    println!("{:?}", &m.definite);
+                    m.write_cache_to_file(&dir)?;
+                    m.write_definite_to_file(&dir)?;
+
+                    println!("{:#}", json!(&m.definite));
                 }
             },
         };
