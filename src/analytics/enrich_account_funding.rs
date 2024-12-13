@@ -9,7 +9,7 @@ use std::{
     io::Read,
 };
 
-use crate::schema_exchange_orders::ExchangeOrder;
+use crate::schema_exchange_orders::{ExchangeOrder, OrderType};
 
 #[cfg(test)]
 use crate::date_util::parse_date;
@@ -46,8 +46,8 @@ impl BalanceTracker {
 
     pub fn process_transaction_alt(&mut self, order: &ExchangeOrder) {
         let date = order.filled_at;
-        match order.order_type.as_str() {
-            "Buy" => {
+        match order.order_type {
+            OrderType::Buy => {
                 // user offered to buy coins (Buyer)
                 // he sends USD
                 // accepter sends coins. (Seller)
@@ -55,7 +55,7 @@ impl BalanceTracker {
                 self.update_balance_and_flows_alt(order.user, date, order.amount, true);
                 self.update_balance_and_flows_alt(order.accepter, date, order.amount, false);
             }
-            "Sell" => {
+            OrderType::Sell => {
                 // user offered to sell coins (Seller)
                 // he sends Coins
                 // accepter sends USD. (Buyer)
@@ -256,7 +256,7 @@ fn test_replay_transactions() {
         // user_1 sends USD, user_2 moves 10 coins.
         ExchangeOrder {
             user: 1,
-            order_type: "Buy".to_string(),
+            order_type: OrderType::Buy,
             amount: 10.0,
             price: 2.0,
             created_at: parse_date("2024-03-01"),
@@ -267,12 +267,13 @@ fn test_replay_transactions() {
             price_vs_rms_hour: 0.0,
             price_vs_rms_24hour: 0.0,
             shill_bid: None,
+            ..Default::default()
         },
         ExchangeOrder {
             // user 2 creates an offer to SELL, user 3 accepts.
             // user 3 sends USD user 2 moves amount of coins.
             user: 2,
-            order_type: "Sell".to_string(),
+            order_type: OrderType::Sell,
             amount: 5.0,
             price: 3.0,
             created_at: parse_date("2024-03-05"),
@@ -283,12 +284,13 @@ fn test_replay_transactions() {
             price_vs_rms_hour: 0.0,
             price_vs_rms_24hour: 0.0,
             shill_bid: None,
+            ..Default::default()
         },
         // user 3 creates an offer to BUY, user 1 accepts.
         // user 3 sends USD user 1 moves amount of coins.
         ExchangeOrder {
             user: 3,
-            order_type: "Buy".to_string(),
+            order_type: OrderType::Buy,
             amount: 15.0,
             price: 1.5,
             created_at: parse_date("2024-03-10"),
@@ -299,6 +301,7 @@ fn test_replay_transactions() {
             price_vs_rms_hour: 0.0,
             price_vs_rms_24hour: 0.0,
             shill_bid: None,
+            ..Default::default()
         },
     ];
 

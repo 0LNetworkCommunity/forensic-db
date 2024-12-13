@@ -1,14 +1,33 @@
+use std::fmt;
+
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize};
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
+pub enum OrderType {
+    Buy,
+    #[default]
+    Sell,
+}
+
+impl fmt::Display for OrderType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match &self {
+            OrderType::Buy => write!(f, "Buy"),
+            OrderType::Sell => write!(f, "Sell"),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[allow(dead_code)]
+
 pub struct ExchangeOrder {
     pub user: u32,
     #[serde(rename = "orderType")]
-    pub order_type: String,
+    pub order_type: OrderType,
     #[serde(deserialize_with = "deserialize_amount")]
     pub amount: f64,
     #[serde(deserialize_with = "deserialize_amount")]
@@ -26,13 +45,24 @@ pub struct ExchangeOrder {
     pub price_vs_rms_24hour: f64,
     #[serde(skip_deserializing)]
     pub shill_bid: Option<bool>, // New field to indicate if it took the best price
+    #[serde(skip_deserializing)]
+    pub competing_offers: Option<CompetingOffers>, // New field to indicate if it took the best price
+}
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct CompetingOffers {
+    pub offer_type: OrderType,
+    pub total_open_offers: u64,
+    pub offers_same_type: u64,
+    pub offers_within_amount: u64,
+    pub offers_within_amount_lower_price: u64,
+    pub offers_within_amount_higher_price: u64,
 }
 
 impl Default for ExchangeOrder {
     fn default() -> Self {
         Self {
             user: 0,
-            order_type: "Sell".to_string(),
+            order_type: OrderType::Sell,
             amount: 1.0,
             price: 1.0,
             created_at: DateTime::<Utc>::from_timestamp_nanos(0),
@@ -43,6 +73,7 @@ impl Default for ExchangeOrder {
             price_vs_rms_hour: 0.0,
             price_vs_rms_24hour: 0.0,
             shill_bid: None,
+            competing_offers: None,
         }
     }
 }
@@ -147,7 +178,7 @@ fn test_deserialize_orders() {
     // Check that the result matches the expected values
     assert_eq!(orders.len(), 4);
     assert_eq!(orders[0].user, 1);
-    assert_eq!(orders[0].order_type, "Sell");
+    assert_eq!(orders[0].order_type, OrderType::Sell);
     assert_eq!(orders[0].amount, 40000.000);
     assert_eq!(orders[0].accepter, 3768);
 }

@@ -1,7 +1,7 @@
 use chrono::Duration;
 use std::collections::VecDeque;
 
-use crate::schema_exchange_orders::ExchangeOrder;
+use crate::schema_exchange_orders::{CompetingOffers, ExchangeOrder};
 
 fn calculate_rms(data: &[f64]) -> f64 {
     let (sum, count) = data
@@ -80,48 +80,126 @@ pub fn include_rms_stats(swaps: &mut [ExchangeOrder]) {
     }
 }
 
+fn get_competing_offers(
+    current_order: &ExchangeOrder,
+    all_offers: &[ExchangeOrder],
+) -> CompetingOffers {
+    // for o in all_offers {
+    //   // is the offer
+    //   if o.filled_at > current_order.filled_at &&
+    //   o.created_at <= current_order.filled_at {
+    //     competing.total_offers += 1;
+
+    //     if o.amount <= current_order.amount {
+    //       competing.
+    //     }
+
+    //     o.price <= current_swap.price
+
+    //     // &&
+    //     //             o.amount <= current_swap.amount),
+
+    //   }
+    // }
+    // // Filter for open trades
+    // let open_orders = swaps
+    //     .iter_mut()
+    //     .filter(|&other_swap| {
+    //         other_swap.filled_at > current_swap.filled_at
+    //             && other_swap.created_at <= current_swap.filled_at
+    //     })
+    //     .collect::<Vec<_>>();
+
+    // competing.total_open_offers = open_orders.len() as u64;
+    // competing.total_buy_offers = open_orders.iter().fold(0, |acc, el| {
+    //     if &el.order_type == "Buy" {
+    //         acc + 1
+    //     } else {
+    //         acc
+    //     }
+    // });
+    // competing.total_sell_offers = open_orders.iter().fold(0, |acc, el| {
+    //     if &el.order_type == "Sell" {
+    //         acc + 1
+    //     } else {
+    //         acc
+    //     }
+    // });
+    CompetingOffers::default()
+}
+pub fn process_shill_alt(swaps: &mut [ExchangeOrder]) {
+    swaps.sort_by_key(|swap| swap.filled_at); // Sort by filled_at
+
+    // for current_swap in swaps.iter_mut() {
+    //     // competing.total_sell_offers = open_orders.iter().fold(0, |acc, el| { &el.order_type == "Sell"});
+
+    //     // Determine if the current swap took the best price
+    //     let is_shill_bid = match current_swap.order_type {
+    //         // Signs of shill trades.
+    //         // For those offering to SELL coins, as the tx.user (offerer)
+    //         // I should offer to sell near the current clearing price.
+    //         // If I'm making shill bids, I'm creating trades above the current clearing price. An honest actor wouldn't expect those to get filled immediately.
+    //         // If an accepter is buying coins at a higher price than other orders which could be filled, then they are likely colluding to increase the price.
+    //         OrderType::Sell => open_orders.iter().any(|other_swap|
+    //               // if there are cheaper SELL offers,
+    //               // for smaller sizes, then the rational honest actor
+    //               // will pick one of those.
+    //               // So we find the list of open orders which would be
+    //               // better than the one taken how.
+    //               // if there are ANY available, then this SELL order was
+    //               // filled dishonestly.
+    //               other_swap.price <= current_swap.price &&
+    //               other_swap.amount <= current_swap.amount),
+    //         _ => false,
+    //     };
+
+    //     // Update the swap with the best price flag
+    //     current_swap.shill_bid = Some(is_shill_bid);
+    // }
+}
+
 pub fn process_sell_order_shill(swaps: &mut [ExchangeOrder]) {
     swaps.sort_by_key(|swap| swap.filled_at); // Sort by filled_at
 
-    for i in 0..swaps.len() {
-        let current_swap = &swaps[i];
-        // TODO: move this to a filter on the enclosing scope
-        if current_swap.shill_bid.is_some() {
-            continue;
-        };
+    // for i in 0..swaps.len() {
+    //     let current_swap = &swaps[i];
+    //     // TODO: move this to a filter on the enclosing scope
+    //     if current_swap.shill_bid.is_some() {
+    //         continue;
+    //     };
 
-        // Filter for open trades
-        let open_orders = swaps
-            .iter()
-            .filter(|&other_swap| {
-                other_swap.filled_at > current_swap.filled_at
-                    && other_swap.created_at <= current_swap.filled_at
-            })
-            .collect::<Vec<_>>();
+    //     // Filter for open trades
+    //     let open_orders = swaps
+    //         .iter()
+    //         .filter(|&other_swap| {
+    //             other_swap.filled_at > current_swap.filled_at
+    //                 && other_swap.created_at <= current_swap.filled_at
+    //         })
+    //         .collect::<Vec<_>>();
 
-        // Determine if the current swap took the best price
-        let is_shill_bid = match current_swap.order_type.as_str() {
-            // Signs of shill trades.
-            // For those offering to SELL coins, as the tx.user (offerer)
-            // I should offer to sell near the current clearing price.
-            // If I'm making shill bids, I'm creating trades above the current clearing price. An honest actor wouldn't expect those to get filled immediately.
-            // If an accepter is buying coins at a higher price than other orders which could be filled, then they are likely colluding to increase the price.
-            "Sell" => open_orders.iter().any(|other_swap|
-                  // if there are cheaper SELL offers,
-                  // for smaller sizes, then the rational honest actor
-                  // will pick one of those.
-                  // So we find the list of open orders which would be
-                  // better than the one taken how.
-                  // if there are ANY available, then this SELL order was
-                  // filled dishonestly.
-                  other_swap.price <= current_swap.price &&
-                  other_swap.amount <= current_swap.amount),
-            _ => false,
-        };
+    //     // Determine if the current swap took the best price
+    //     let is_shill_bid = match current_swap.order_type.as_str() {
+    //         // Signs of shill trades.
+    //         // For those offering to SELL coins, as the tx.user (offerer)
+    //         // I should offer to sell near the current clearing price.
+    //         // If I'm making shill bids, I'm creating trades above the current clearing price. An honest actor wouldn't expect those to get filled immediately.
+    //         // If an accepter is buying coins at a higher price than other orders which could be filled, then they are likely colluding to increase the price.
+    //         "Sell" => open_orders.iter().any(|other_swap|
+    //               // if there are cheaper SELL offers,
+    //               // for smaller sizes, then the rational honest actor
+    //               // will pick one of those.
+    //               // So we find the list of open orders which would be
+    //               // better than the one taken how.
+    //               // if there are ANY available, then this SELL order was
+    //               // filled dishonestly.
+    //               other_swap.price <= current_swap.price &&
+    //               other_swap.amount <= current_swap.amount),
+    //         _ => false,
+    //     };
 
-        // Update the swap with the best price flag
-        swaps[i].shill_bid = Some(is_shill_bid);
-    }
+    //     // Update the swap with the best price flag
+    //     swaps[i].shill_bid = Some(is_shill_bid);
+    // }
 }
 
 pub fn process_buy_order_shill(swaps: &mut [ExchangeOrder]) {
@@ -136,37 +214,37 @@ pub fn process_buy_order_shill(swaps: &mut [ExchangeOrder]) {
             continue;
         };
 
-        // Filter for open trades
-        let open_orders = swaps
-            .iter()
-            .filter(|&other_swap| {
-                other_swap.filled_at > current_swap.created_at
-                    && other_swap.created_at <= current_swap.created_at
-            })
-            .collect::<Vec<_>>();
+        // // Filter for open trades
+        // let open_orders = swaps
+        //     .iter()
+        //     .filter(|&other_swap| {
+        //         other_swap.filled_at > current_swap.created_at
+        //             && other_swap.created_at <= current_swap.created_at
+        //     })
+        //     .collect::<Vec<_>>();
 
-        // Determine if the current swap took the best price
-        let is_shill_bid = match current_swap.order_type.as_str() {
-            // Signs of shill trades.
-            // For those offering to BUY coins, as the tx.user (offerer)
-            // An honest and rational actor would not create a buy order
-            // higher than other SELL offers which have not been filled.
-            // The shill bidder who is colluding will create a BUY order at a higher price than other SELL orders which currently exist.
-            "Buy" => open_orders.iter().any(|other_swap| {
-                if other_swap.order_type == *"Sell" {
-                    // this is not a rational trade if there are
-                    // SELL offers of the same amount (or smaller)
-                    // at a price equal or lower.
-                    return other_swap.price <= current_swap.price
-                        && other_swap.amount <= current_swap.amount;
-                }
-                false
-            }),
-            _ => false,
-        };
+        // // Determine if the current swap took the best price
+        // let is_shill_bid = match current_swap.order_type.as_str() {
+        //     // Signs of shill trades.
+        //     // For those offering to BUY coins, as the tx.user (offerer)
+        //     // An honest and rational actor would not create a buy order
+        //     // higher than other SELL offers which have not been filled.
+        //     // The shill bidder who is colluding will create a BUY order at a higher price than other SELL orders which currently exist.
+        //     "Buy" => open_orders.iter().any(|other_swap| {
+        //         if other_swap.order_type == *"Sell" {
+        //             // this is not a rational trade if there are
+        //             // SELL offers of the same amount (or smaller)
+        //             // at a price equal or lower.
+        //             return other_swap.price <= current_swap.price
+        //                 && other_swap.amount <= current_swap.amount;
+        //         }
+        //         false
+        //     }),
+        //     _ => false,
+        // };
 
         // Update the swap with the best price flag
-        swaps[i].shill_bid = Some(is_shill_bid);
+        swaps[i].shill_bid = Some(false);
     }
 }
 
@@ -186,12 +264,13 @@ fn test_rms_pipeline() {
                 .unwrap()
                 .with_timezone(&Utc),
             price: 100.0,
-            order_type: "Buy".into(),
+            order_type: OrderType::Buy,
             rms_hour: 0.0,
             rms_24hour: 0.0,
             price_vs_rms_hour: 0.0,
             price_vs_rms_24hour: 0.0,
             shill_bid: None,
+            ..Default::default()
         },
         // less than 12 hours later next trade 5/6/2024 8AM
         ExchangeOrder {
@@ -205,12 +284,13 @@ fn test_rms_pipeline() {
                 .unwrap()
                 .with_timezone(&Utc),
             price: 4.0,
-            order_type: "Buy".into(),
+            order_type: OrderType::Buy,
             rms_hour: 0.0,
             rms_24hour: 0.0,
             price_vs_rms_hour: 0.0,
             price_vs_rms_24hour: 0.0,
             shill_bid: None,
+            ..Default::default()
         },
         // less than one hour later
         ExchangeOrder {
@@ -224,12 +304,13 @@ fn test_rms_pipeline() {
                 .unwrap()
                 .with_timezone(&Utc),
             price: 4.0,
-            order_type: "Buy".into(),
+            order_type: OrderType::Buy,
             rms_hour: 0.0,
             rms_24hour: 0.0,
             price_vs_rms_hour: 0.0,
             price_vs_rms_24hour: 0.0,
             shill_bid: None,
+            ..Default::default()
         },
         // same time as previous but different traders
         ExchangeOrder {
@@ -243,12 +324,7 @@ fn test_rms_pipeline() {
                 .unwrap()
                 .with_timezone(&Utc),
             price: 32.0,
-            order_type: "Sell".into(),
-            rms_hour: 0.0,
-            rms_24hour: 0.0,
-            price_vs_rms_hour: 0.0,
-            price_vs_rms_24hour: 0.0,
-            shill_bid: None,
+            ..Default::default()
         },
     ];
 
