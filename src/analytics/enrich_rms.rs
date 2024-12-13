@@ -89,22 +89,25 @@ fn get_competing_offers(
         ..Default::default()
     };
 
-    for o in all_offers {
-        if competition.offer_type != o.order_type {
+    for other in all_offers {
+        if competition.offer_type != other.order_type {
             continue;
         }
 
-        // is the offer
-        if o.filled_at > current_order.filled_at && o.created_at <= current_order.filled_at {
+        // is the other offer created in the past, and still not filled
+        if other.created_at < current_order.filled_at && other.filled_at > current_order.filled_at {
             competition.open_same_type += 1;
-            if o.amount <= current_order.amount {
+            if other.amount <= current_order.amount {
                 competition.within_amount += 1;
 
-                if o.price <= current_order.price {
+                if other.price <= current_order.price {
                     competition.within_amount_lower_price += 1;
                 }
             }
         }
+    }
+    if competition.offer_type == OrderType::Sell && competition.within_amount_lower_price > 0 {
+        dbg!(&competition);
     }
     competition
 }
@@ -115,6 +118,7 @@ pub fn process_shill(all_transactions: &mut [ExchangeOrder]) {
         // TODO: gross, don't enumerate, borrow checker you won the battle
         let mut current_order = all_transactions[i].clone();
         let comp = get_competing_offers(&current_order, all_transactions);
+        // dbg!(&comp);
 
         // We can only evaluate if an "accepter" is engaged in shill behavior.
         // the "offerer" may create unreasonable offers, but the shill trade requires someone accepting.
