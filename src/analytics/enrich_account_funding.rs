@@ -62,9 +62,6 @@ impl BalanceTracker {
                 self.update_balance_and_flows_alt(order.accepter, date, order.amount, true);
                 self.update_balance_and_flows_alt(order.user, date, order.amount, false);
             }
-            _ => {
-                println!("ERROR: not a valid Buy/Sell order, {:?}", &order);
-            }
         }
     }
     fn update_balance_and_flows_alt(
@@ -266,7 +263,6 @@ fn test_replay_transactions() {
             rms_24hour: 0.0,
             price_vs_rms_hour: 0.0,
             price_vs_rms_24hour: 0.0,
-            shill_bid: None,
             ..Default::default()
         },
         ExchangeOrder {
@@ -283,7 +279,6 @@ fn test_replay_transactions() {
             rms_24hour: 0.0,
             price_vs_rms_hour: 0.0,
             price_vs_rms_24hour: 0.0,
-            shill_bid: None,
             ..Default::default()
         },
         // user 3 creates an offer to BUY, user 1 accepts.
@@ -300,7 +295,6 @@ fn test_replay_transactions() {
             rms_24hour: 0.0,
             price_vs_rms_hour: 0.0,
             price_vs_rms_24hour: 0.0,
-            shill_bid: None,
             ..Default::default()
         },
     ];

@@ -44,18 +44,18 @@ pub struct ExchangeOrder {
     #[serde(skip_deserializing)]
     pub price_vs_rms_24hour: f64,
     #[serde(skip_deserializing)]
-    pub shill_bid: Option<bool>, // New field to indicate if it took the best price
+    pub accepter_shill_down: bool, // an accepter pushing price down
+    #[serde(skip_deserializing)]
+    pub accepter_shill_up: bool, // an accepter pushing price up
     #[serde(skip_deserializing)]
     pub competing_offers: Option<CompetingOffers>, // New field to indicate if it took the best price
 }
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct CompetingOffers {
     pub offer_type: OrderType,
-    pub total_open_offers: u64,
-    pub offers_same_type: u64,
-    pub offers_within_amount: u64,
-    pub offers_within_amount_lower_price: u64,
-    pub offers_within_amount_higher_price: u64,
+    pub open_same_type: u64,
+    pub within_amount: u64,
+    pub within_amount_lower_price: u64,
 }
 
 impl Default for ExchangeOrder {
@@ -72,7 +72,8 @@ impl Default for ExchangeOrder {
             rms_24hour: 0.0,
             price_vs_rms_hour: 0.0,
             price_vs_rms_24hour: 0.0,
-            shill_bid: None,
+            accepter_shill_down: false,
+            accepter_shill_up: false,
             competing_offers: None,
         }
     }
@@ -83,7 +84,7 @@ impl ExchangeOrder {
     /// Note original data was in an RFC rfc3339 with Z for UTC, Cypher seems to prefer with offsets +00000
     pub fn to_cypher_object_template(&self) -> String {
         format!(
-            r#"{{user: {}, accepter: {}, order_type: "{}", amount: {}, price:{}, created_at: datetime("{}"), created_at_ts: {}, filled_at: datetime("{}"), filled_at_ts: {}, shill_bid: {}, rms_hour: {}, rms_24hour: {}, price_vs_rms_hour: {}, price_vs_rms_24hour: {} }}"#,
+            r#"{{user: {}, accepter: {}, order_type: "{}", amount: {}, price:{}, created_at: datetime("{}"), created_at_ts: {}, filled_at: datetime("{}"), filled_at_ts: {}, accepter_shill_up: {},accepter_shill_down: {}, rms_hour: {}, rms_24hour: {}, price_vs_rms_hour: {}, price_vs_rms_24hour: {} }}"#,
             self.user,
             self.accepter,
             self.order_type,
@@ -93,7 +94,8 @@ impl ExchangeOrder {
             self.created_at.timestamp_micros(),
             self.filled_at.to_rfc3339(),
             self.filled_at.timestamp_micros(),
-            self.shill_bid.unwrap_or(false),
+            self.accepter_shill_down,
+            self.accepter_shill_up,
             self.rms_hour,
             self.rms_24hour,
             self.price_vs_rms_hour,

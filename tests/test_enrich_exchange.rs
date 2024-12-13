@@ -49,13 +49,11 @@ fn test_sell_order_shill() {
     let mut orders = extract_exchange_orders::read_orders_from_file(buf).unwrap();
     assert!(orders.len() == 25450);
 
-    enrich_rms::process_sell_order_shill(&mut orders);
+    enrich_rms::process_shill(&mut orders);
 
     let count_shill = orders.iter().fold(0, |mut acc, el| {
-        if let Some(is_shill) = el.shill_bid {
-            if is_shill {
-                acc += 1
-            }
+        if el.accepter_shill_up {
+            acc += 1
         }
         acc
     });
@@ -85,13 +83,11 @@ fn test_enrich_buy_shill() {
     let mut orders = extract_exchange_orders::read_orders_from_file(buf).unwrap();
     assert!(orders.len() == 25450);
 
-    enrich_rms::process_buy_order_shill(&mut orders);
+    enrich_rms::process_shill(&mut orders);
 
     let count_shill = orders.iter().fold(0, |mut acc, el| {
-        if let Some(is_shill) = el.shill_bid {
-            if is_shill {
-                acc += 1
-            }
+        if el.accepter_shill_down {
+            acc += 1
         }
         acc
     });

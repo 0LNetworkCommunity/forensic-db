@@ -93,8 +93,7 @@ pub async fn load_from_json(path: &Path, pool: &Graph, batch_size: usize) -> Res
     info!("completed rms statistics");
 
     // find likely shill bids
-    enrich_rms::process_sell_order_shill(&mut orders);
-    enrich_rms::process_buy_order_shill(&mut orders);
+    enrich_rms::process_shill(&mut orders);
     info!("completed shill bid calculation");
 
     let mut balances = BalanceTracker::new();
