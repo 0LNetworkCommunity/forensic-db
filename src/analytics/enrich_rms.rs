@@ -106,24 +106,22 @@ fn get_competing_offers(
             }
         }
     }
-    if competition.offer_type == OrderType::Sell && competition.within_amount_lower_price > 0 {
-        dbg!(&competition);
-    }
+
     competition
 }
 pub fn process_shill(all_transactions: &mut [ExchangeOrder]) {
     all_transactions.sort_by_key(|el| el.filled_at); // Sort by filled_at
 
-    for i in 0..all_transactions.len() {
-        // TODO: gross, don't enumerate, borrow checker you won the battle
-        let mut current_order = all_transactions[i].clone();
-        let comp = get_competing_offers(&current_order, all_transactions);
-        // dbg!(&comp);
+    // TODO: gross, see what you make me do, borrow checker.
+    let temp_tx = all_transactions.to_vec();
+
+    for current_order in all_transactions.iter_mut() {
+        let comp = get_competing_offers(current_order, &temp_tx);
 
         // We can only evaluate if an "accepter" is engaged in shill behavior.
         // the "offerer" may create unreasonable offers, but the shill trade requires someone accepting.
 
-        match current_order.order_type {
+        match comp.offer_type {
             // An accepter may be looking to dispose of coins.
             // They must fill someone else's "BUY" offer.
 
@@ -147,102 +145,13 @@ pub fn process_shill(all_transactions: &mut [ExchangeOrder]) {
             }
             OrderType::Sell => {
                 if comp.within_amount_lower_price > 0 {
+                    dbg!(&comp);
                     current_order.accepter_shill_up = true
                 }
             }
         }
     }
 }
-
-// pub fn process_sell_order_shill(swaps: &mut [ExchangeOrder]) {
-//     swaps.sort_by_key(|swap| swap.filled_at); // Sort by filled_at
-
-//     // for i in 0..swaps.len() {
-//     //     let current_swap = &swaps[i];
-//     //     // TODO: move this to a filter on the enclosing scope
-//     //     if current_swap.shill_bid.is_some() {
-//     //         continue;
-//     //     };
-
-//     //     // Filter for open trades
-//     //     let open_orders = swaps
-//     //         .iter()
-//     //         .filter(|&other_swap| {
-//     //             other_swap.filled_at > current_swap.filled_at
-//     //                 && other_swap.created_at <= current_swap.filled_at
-//     //         })
-//     //         .collect::<Vec<_>>();
-
-//     //     // Determine if the current swap took the best price
-//     //     let is_shill_bid = match current_swap.order_type.as_str() {
-//     //         // Signs of shill trades.
-//     //         // For those offering to SELL coins, as the tx.user (offerer)
-//     //         // I should offer to sell near the current clearing price.
-//     //         // If I'm making shill bids, I'm creating trades above the current clearing price. An honest actor wouldn't expect those to get filled immediately.
-//     //         // If an accepter is buying coins at a higher price than other orders which could be filled, then they are likely colluding to increase the price.
-//     //         "Sell" => open_orders.iter().any(|other_swap|
-//     //               // if there are cheaper SELL offers,
-//     //               // for smaller sizes, then the rational honest actor
-//     //               // will pick one of those.
-//     //               // So we find the list of open orders which would be
-//     //               // better than the one taken how.
-//     //               // if there are ANY available, then this SELL order was
-//     //               // filled dishonestly.
-//     //               other_swap.price <= current_swap.price &&
-//     //               other_swap.amount <= current_swap.amount),
-//     //         _ => false,
-//     //     };
-
-//     //     // Update the swap with the best price flag
-//     //     swaps[i].shill_bid = Some(is_shill_bid);
-//     // }
-// }
-
-// pub fn process_buy_order_shill(swaps: &mut [ExchangeOrder]) {
-//     // NEED to sort by created_at to identify shill created BUY orders
-//     swaps.sort_by_key(|swap| swap.created_at);
-
-//     for i in 0..swaps.len() {
-//         let current_swap = &swaps[i];
-
-//         // TODO: move this to a filter on the enclosing scope
-//         if current_swap.shill_bid.is_some() {
-//             continue;
-//         };
-
-//         // // Filter for open trades
-//         // let open_orders = swaps
-//         //     .iter()
-//         //     .filter(|&other_swap| {
-//         //         other_swap.filled_at > current_swap.created_at
-//         //             && other_swap.created_at <= current_swap.created_at
-//         //     })
-//         //     .collect::<Vec<_>>();
-
-//         // // Determine if the current swap took the best price
-//         // let is_shill_bid = match current_swap.order_type.as_str() {
-//         //     // Signs of shill trades.
-//         //     // For those offering to BUY coins, as the tx.user (offerer)
-//         //     // An honest and rational actor would not create a buy order
-//         //     // higher than other SELL offers which have not been filled.
-//         //     // The shill bidder who is colluding will create a BUY order at a higher price than other SELL orders which currently exist.
-//         //     "Buy" => open_orders.iter().any(|other_swap| {
-//         //         if other_swap.order_type == *"Sell" {
-//         //             // this is not a rational trade if there are
-//         //             // SELL offers of the same amount (or smaller)
-//         //             // at a price equal or lower.
-//         //             return other_swap.price <= current_swap.price
-//         //                 && other_swap.amount <= current_swap.amount;
-//         //         }
-//         //         false
-//         //     }),
-//         //     _ => false,
-//         // };
-
-//         // Update the swap with the best price flag
-//         swaps[i].shill_bid = Some(false);
-//     }
-// }
 
 #[test]
 fn test_rms_pipeline() {

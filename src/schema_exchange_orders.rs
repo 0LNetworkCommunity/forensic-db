@@ -23,7 +23,6 @@ impl fmt::Display for OrderType {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[allow(dead_code)]
-
 pub struct ExchangeOrder {
     pub user: u32,
     #[serde(rename = "orderType")]

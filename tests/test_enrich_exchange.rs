@@ -49,16 +49,11 @@ fn test_sell_order_shill() {
     let mut orders = extract_exchange_orders::read_orders_from_file(buf).unwrap();
     assert!(orders.len() == 25450);
 
-    enrich_rms::process_shill(&mut orders[..100]);
+    enrich_rms::process_shill(&mut orders);
 
-    let count_shill = orders.iter().fold(0, |mut acc, el| {
-        if el.accepter_shill_up {
-            acc += 1
-        }
-        acc
-    });
+    let count_shill: Vec<_> = orders.iter().filter(|el| el.accepter_shill_up).collect();
 
-    dbg!(&count_shill);
+    dbg!(&count_shill.len());
 
     // assert!(count_shill == 13723);
     assert!(orders.len() == 25450);
