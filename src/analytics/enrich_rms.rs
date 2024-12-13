@@ -145,7 +145,6 @@ pub fn process_shill(all_transactions: &mut [ExchangeOrder]) {
             }
             OrderType::Sell => {
                 if comp.within_amount_lower_price > 0 {
-                    dbg!(&comp);
                     current_order.accepter_shill_up = true
                 }
             }

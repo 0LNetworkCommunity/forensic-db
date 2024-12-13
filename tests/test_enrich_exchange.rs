@@ -43,7 +43,7 @@ fn test_enrich_rms() {
 }
 
 #[test]
-fn test_sell_order_shill() {
+fn test_sell_shill_up() {
     let path = env!("CARGO_MANIFEST_DIR");
     let buf = PathBuf::from(path).join("tests/fixtures/savedOlOrders2.json");
     let mut orders = extract_exchange_orders::read_orders_from_file(buf).unwrap();
@@ -53,9 +53,7 @@ fn test_sell_order_shill() {
 
     let count_shill: Vec<_> = orders.iter().filter(|el| el.accepter_shill_up).collect();
 
-    dbg!(&count_shill.len());
-
-    // assert!(count_shill == 13723);
+    assert!(count_shill.len() == 6039);
     assert!(orders.len() == 25450);
 }
 
@@ -72,7 +70,7 @@ fn test_enrich_account_funding() {
 }
 
 #[test]
-fn test_enrich_buy_shill() {
+fn test_enrich_shill_down() {
     let path = env!("CARGO_MANIFEST_DIR");
     let buf = PathBuf::from(path).join("tests/fixtures/savedOlOrders2.json");
     let mut orders = extract_exchange_orders::read_orders_from_file(buf).unwrap();
@@ -80,16 +78,9 @@ fn test_enrich_buy_shill() {
 
     enrich_rms::process_shill(&mut orders);
 
-    let count_shill = orders.iter().fold(0, |mut acc, el| {
-        if el.accepter_shill_down {
-            acc += 1
-        }
-        acc
-    });
+    let count_shill_down: Vec<_> = orders.iter().filter(|el| el.accepter_shill_down).collect();
 
-    dbg!(&count_shill);
-
-    // assert!(count_shill == 13723);
+    assert!(count_shill_down.len() == 2319);
     assert!(orders.len() == 25450);
 }
 
