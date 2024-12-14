@@ -29,6 +29,9 @@ pub static INDEX_TX_HASH: &str =
 pub static INDEX_TX_FUNCTION: &str =
     "CREATE INDEX tx_function IF NOT EXISTS FOR ()-[r:Tx]-() ON (r.function)";
 
+pub static INDEX_TX_RELATION: &str =
+    "CREATE INDEX tx_relation IF NOT EXISTS FOR ()-[r:Tx]-() ON (r.relation)";
+
 pub static INDEX_SWAP_ID: &str =
     "CREATE INDEX swap_account_id IF NOT EXISTS FOR (n:SwapAccount) ON (n.swap_id)";
 
@@ -74,6 +77,7 @@ pub async fn maybe_create_indexes(graph: &Graph) -> Result<()> {
         INDEX_TX_TIMESTAMP,
         INDEX_TX_HASH,
         INDEX_TX_FUNCTION,
+        INDEX_TX_RELATION,
         INDEX_SWAP_ID,
         INDEX_EXCHANGE_LEDGER,
         INDEX_EXCHANGE_LINK_LEDGER,

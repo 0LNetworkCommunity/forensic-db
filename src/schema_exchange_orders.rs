@@ -1,14 +1,32 @@
+use std::fmt;
+
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize};
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
+pub enum OrderType {
+    Buy,
+    #[default]
+    Sell,
+}
+
+impl fmt::Display for OrderType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match &self {
+            OrderType::Buy => write!(f, "Buy"),
+            OrderType::Sell => write!(f, "Sell"),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[allow(dead_code)]
 pub struct ExchangeOrder {
     pub user: u32,
     #[serde(rename = "orderType")]
-    pub order_type: String,
+    pub order_type: OrderType,
     #[serde(deserialize_with = "deserialize_amount")]
     pub amount: f64,
     #[serde(deserialize_with = "deserialize_amount")]
@@ -25,14 +43,25 @@ pub struct ExchangeOrder {
     #[serde(skip_deserializing)]
     pub price_vs_rms_24hour: f64,
     #[serde(skip_deserializing)]
-    pub shill_bid: Option<bool>, // New field to indicate if it took the best price
+    pub accepter_shill_down: bool, // an accepter pushing price down
+    #[serde(skip_deserializing)]
+    pub accepter_shill_up: bool, // an accepter pushing price up
+    #[serde(skip_deserializing)]
+    pub competing_offers: Option<CompetingOffers>, // New field to indicate if it took the best price
+}
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct CompetingOffers {
+    pub offer_type: OrderType,
+    pub open_same_type: u64,
+    pub within_amount: u64,
+    pub within_amount_lower_price: u64,
 }
 
 impl Default for ExchangeOrder {
     fn default() -> Self {
         Self {
             user: 0,
-            order_type: "Sell".to_string(),
+            order_type: OrderType::Sell,
             amount: 1.0,
             price: 1.0,
             created_at: DateTime::<Utc>::from_timestamp_nanos(0),
@@ -42,7 +71,9 @@ impl Default for ExchangeOrder {
             rms_24hour: 0.0,
             price_vs_rms_hour: 0.0,
             price_vs_rms_24hour: 0.0,
-            shill_bid: None,
+            accepter_shill_down: false,
+            accepter_shill_up: false,
+            competing_offers: None,
         }
     }
 }
@@ -52,7 +83,7 @@ impl ExchangeOrder {
     /// Note original data was in an RFC rfc3339 with Z for UTC, Cypher seems to prefer with offsets +00000
     pub fn to_cypher_object_template(&self) -> String {
         format!(
-            r#"{{user: {}, accepter: {}, order_type: "{}", amount: {}, price:{}, created_at: datetime("{}"), created_at_ts: {}, filled_at: datetime("{}"), filled_at_ts: {}, shill_bid: {}, rms_hour: {}, rms_24hour: {}, price_vs_rms_hour: {}, price_vs_rms_24hour: {} }}"#,
+            r#"{{user: {}, accepter: {}, order_type: "{}", amount: {}, price:{}, created_at: datetime("{}"), created_at_ts: {}, filled_at: datetime("{}"), filled_at_ts: {}, accepter_shill_down: {}, accepter_shill_up: {}, rms_hour: {}, rms_24hour: {}, price_vs_rms_hour: {}, price_vs_rms_24hour: {} }}"#,
             self.user,
             self.accepter,
             self.order_type,
@@ -62,7 +93,8 @@ impl ExchangeOrder {
             self.created_at.timestamp_micros(),
             self.filled_at.to_rfc3339(),
             self.filled_at.timestamp_micros(),
-            self.shill_bid.unwrap_or(false),
+            self.accepter_shill_down,
+            self.accepter_shill_up,
             self.rms_hour,
             self.rms_24hour,
             self.price_vs_rms_hour,
@@ -97,7 +129,8 @@ impl ExchangeOrder {
     created_at_ts: tx.created_at_ts,
     filled_at: tx.filled_at,
     filled_at_ts: tx.filled_at_ts,
-    shill_bid: tx.shill_bid,
+    accepter_shill_up: tx.accepter_shill_up,
+    accepter_shill_down: tx.accepter_shill_down,
     rms_hour: tx.rms_hour,
     rms_24hour: tx.rms_24hour,
     price_vs_rms_hour: tx.price_vs_rms_hour,
@@ -147,7 +180,7 @@ fn test_deserialize_orders() {
     // Check that the result matches the expected values
     assert_eq!(orders.len(), 4);
     assert_eq!(orders[0].user, 1);
-    assert_eq!(orders[0].order_type, "Sell");
+    assert_eq!(orders[0].order_type, OrderType::Sell);
     assert_eq!(orders[0].amount, 40000.000);
     assert_eq!(orders[0].accepter, 3768);
 }

@@ -10,7 +10,7 @@ use crate::{
     schema_exchange_orders::ExchangeOrder,
 };
 
-pub async fn swap_batch(
+pub async fn exchange_txs_batch(
     txs: &[ExchangeOrder],
     pool: &Graph,
     batch_size: usize,
@@ -93,14 +93,13 @@ pub async fn load_from_json(path: &Path, pool: &Graph, batch_size: usize) -> Res
     info!("completed rms statistics");
 
     // find likely shill bids
-    enrich_rms::process_sell_order_shill(&mut orders);
-    enrich_rms::process_buy_order_shill(&mut orders);
+    enrich_rms::process_shill(&mut orders);
     info!("completed shill bid calculation");
 
     let mut balances = BalanceTracker::new();
     balances.replay_transactions(&mut orders)?;
     let ledger_inserts = balances.submit_ledger(pool).await?;
-    info!("exchange ledger relations inserted: {}", ledger_inserts);
+    info!("exchange UserLedger state inserted: {}", ledger_inserts);
 
-    swap_batch(&orders, pool, batch_size).await
+    exchange_txs_batch(&orders, pool, batch_size).await
 }
