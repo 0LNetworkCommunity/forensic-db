@@ -10,7 +10,7 @@ use crate::{
     schema_exchange_orders::ExchangeOrder,
 };
 
-pub async fn swap_batch(
+pub async fn exchange_txs_batch(
     txs: &[ExchangeOrder],
     pool: &Graph,
     batch_size: usize,
@@ -99,7 +99,7 @@ pub async fn load_from_json(path: &Path, pool: &Graph, batch_size: usize) -> Res
     let mut balances = BalanceTracker::new();
     balances.replay_transactions(&mut orders)?;
     let ledger_inserts = balances.submit_ledger(pool).await?;
-    info!("exchange ledger relations inserted: {}", ledger_inserts);
+    info!("exchange UserLedger relations inserted: {}", ledger_inserts);
 
-    swap_batch(&orders, pool, batch_size).await
+    exchange_txs_batch(&orders, pool, batch_size).await
 }

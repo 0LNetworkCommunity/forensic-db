@@ -30,7 +30,7 @@ async fn test_rms_single() -> Result<()> {
     assert!(orders.len() == 25450);
 
     // load 1000 orders
-    load_exchange_orders::swap_batch(&orders[..1000], &graph, 1000).await?;
+    load_exchange_orders::exchange_txs_batch(&orders[..1000], &graph, 1000).await?;
 
     // get just one analytics result, never more than one (but can be empty)
     let list = analytics::exchange_stats::query_rms_analytics_chunk(&graph, 900, 1, false).await?;
@@ -60,7 +60,7 @@ async fn test_rms_single_persist() -> Result<()> {
     assert!(orders.len() == 25450);
 
     // load 1000 orders
-    load_exchange_orders::swap_batch(&orders[..1000], &graph, 1000).await?;
+    load_exchange_orders::exchange_txs_batch(&orders[..1000], &graph, 1000).await?;
 
     // get just one analytics result, never more than one (but can be empty)
     let list = analytics::exchange_stats::query_rms_analytics_chunk(&graph, 900, 1, true).await?;
@@ -90,7 +90,7 @@ async fn test_rms_batch() -> Result<()> {
     assert!(orders.len() == 25450);
 
     // load 1000 orders
-    load_exchange_orders::swap_batch(&orders[..1000], &graph, 1000).await?;
+    load_exchange_orders::exchange_txs_batch(&orders[..1000], &graph, 1000).await?;
 
     let list = analytics::exchange_stats::query_rms_analytics_concurrent(&graph, None, None, false)
         .await?;

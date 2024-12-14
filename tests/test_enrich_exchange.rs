@@ -141,7 +141,7 @@ async fn e2e_swap_data() -> Result<()> {
     assert!(orders.len() == 25450);
 
     // load 1000 orders
-    load_exchange_orders::swap_batch(&orders[..1000], &graph, 1000).await?;
+    load_exchange_orders::exchange_txs_batch(&orders[..1000], &graph, 1000).await?;
 
     // now check data was loaded
     let mut result = graph
