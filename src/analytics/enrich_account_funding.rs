@@ -2,8 +2,6 @@ use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use log::{error, trace};
 use neo4rs::{Graph, Query};
-// use log::trace;
-// use neo4rs::{Graph, Query};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
@@ -12,6 +10,9 @@ use std::{
 };
 
 use crate::schema_exchange_orders::ExchangeOrder;
+
+#[cfg(test)]
+use crate::date_util::parse_date;
 
 #[derive(Default, Debug, Clone, Deserialize, Serialize)]
 pub struct AccountDataAlt {
@@ -248,14 +249,6 @@ pub fn generate_cypher_query(map: String) -> String {
     )
 }
 
-/// Helper function to parse "YYYY-MM-DD" into `DateTime<Utc>`
-pub fn parse_date(date_str: &str) -> DateTime<Utc> {
-    let datetime_str = format!("{date_str}T00:00:00Z"); // Append time and UTC offset
-    DateTime::parse_from_rfc3339(&datetime_str)
-        .expect("Invalid date format; expected YYYY-MM-DD")
-        .with_timezone(&Utc)
-}
-
 #[test]
 fn test_replay_transactions() {
     let mut orders = vec![
@@ -364,6 +357,7 @@ fn test_replay_transactions() {
 #[test]
 fn test_example_user() -> Result<()> {
     use crate::extract_exchange_orders;
+
     use std::path::PathBuf;
     let path = env!("CARGO_MANIFEST_DIR");
     let buf = PathBuf::from(path).join("tests/fixtures/savedOlOrders2.json");

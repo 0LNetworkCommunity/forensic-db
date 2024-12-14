@@ -6,7 +6,8 @@ use serde_json::json;
 use std::path::PathBuf;
 
 use crate::{
-    analytics,
+    analytics::{self, offline_matching::Matching},
+    date_util,
     enrich_exchange_onboarding::{self, ExchangeOnRamp},
     enrich_whitepages::{self, Whitepages},
     json_rescue_v5_load,
@@ -111,6 +112,27 @@ pub enum AnalyticsSub {
         /// commits the analytics to the db
         persist: bool,
     },
+
+    TradesMatching {
+        #[clap(long)]
+        /// start day (exclusive) of trades YYYY-MM-DD
+        start_day: String,
+        #[clap(long)]
+        /// end day (exclusive) of trades YYYY-MM-DD
+        end_day: String,
+
+        #[clap(long)]
+        /// slow search producing likely candidates at each day
+        /// requires top n # for length of initial list to scan
+        replay_balances: Option<u64>,
+        #[clap(long)]
+
+        /// get perfect deposit matches on dump cases, requires tolerance value of 1.0 or more
+        match_simple_dumps: Option<f64>,
+        #[clap(long)]
+        /// clear cache for local matches
+        clear_cache: bool,
+    },
 }
 
 impl WarehouseCli {
@@ -206,6 +228,52 @@ impl WarehouseCli {
                     )
                     .await?;
                     println!("{:#}", json!(&results).to_string());
+                }
+                AnalyticsSub::TradesMatching {
+                    replay_balances,
+                    match_simple_dumps,
+                    clear_cache,
+                    start_day,
+                    end_day,
+                } => {
+                    let dir: PathBuf = PathBuf::from(".");
+
+                    if *clear_cache {
+                        Matching::clear_cache(&dir)?;
+                    }
+
+                    if replay_balances.is_none() && match_simple_dumps.is_none() {
+                        bail!("nothing to do. Must enter --replay-balance or --match-simple-dumps")
+                    }
+                    let pool = try_db_connection_pool(self).await?;
+
+                    let mut m = Matching::read_cache_from_file(&dir).unwrap_or_default();
+                    if let Some(top_n) = replay_balances {
+                        let _ = m
+                            .depth_search_by_top_n_accounts(
+                                &pool,
+                                date_util::parse_date(start_day),
+                                date_util::parse_date(end_day),
+                                *top_n,
+                                Some(dir.clone()),
+                            )
+                            .await;
+                    }
+
+                    if let Some(tolerance) = match_simple_dumps {
+                        m.search_dumps(
+                            &pool,
+                            date_util::parse_date(start_day),
+                            date_util::parse_date(end_day),
+                            *tolerance,
+                        )
+                        .await?;
+                    }
+
+                    m.write_cache_to_file(&dir)?;
+                    m.write_definite_to_file(&dir)?;
+
+                    println!("{:#}", json!(&m.definite));
                 }
             },
         };
