@@ -99,7 +99,7 @@ pub async fn load_from_json(path: &Path, pool: &Graph, batch_size: usize) -> Res
     let mut balances = BalanceTracker::new();
     balances.replay_transactions(&mut orders)?;
     let ledger_inserts = balances.submit_ledger(pool).await?;
-    info!("exchange UserLedger relations inserted: {}", ledger_inserts);
+    info!("exchange UserLedger state inserted: {}", ledger_inserts);
 
     exchange_txs_batch(&orders, pool, batch_size).await
 }

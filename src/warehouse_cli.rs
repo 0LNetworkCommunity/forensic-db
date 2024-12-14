@@ -179,12 +179,16 @@ impl WarehouseCli {
                 let pool = try_db_connection_pool(self).await?;
                 neo4j_init::maybe_create_indexes(&pool).await?;
 
-                load_exchange_orders::load_from_json(
+                let (merged, ignored) = load_exchange_orders::load_from_json(
                     swap_record_json,
                     &pool,
                     batch_size.unwrap_or(250),
                 )
                 .await?;
+                info!(
+                    "SUCCESS: exchange transactions merged: {}, ignored: {}",
+                    merged, ignored
+                );
             }
             Sub::EnrichExchangeOnramp { onboarding_json } => {
                 info!("exchange onramp");
