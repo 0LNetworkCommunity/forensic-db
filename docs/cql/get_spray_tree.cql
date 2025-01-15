@@ -28,10 +28,12 @@ MATCH p=(from:Account)-[t:Tx]->(to:Account)
   )
 
 
-WITH DISTINCT(from) AS from_filter, count(DISTINCT to) as destinations, (sum(t.V7_OlAccountTransfer_amount/scaling) + sum(t.V7_CoinTransfer_amount/scaling) + sum(t.V5_BalanceTransfer_unscaled_value/scaling * 35)) AS total, tree_value_threshold
+WITH DISTINCT(from) AS from_filter, count(DISTINCT to) as destinations, (sum(t.V7_OlAccountTransfer_amount/scaling) + sum(t.V7_CoinTransfer_amount/scaling) + sum(t.V5_BalanceTransfer_unscaled_value/scaling * 35)) AS total, tree_value_threshold, ignore
 
 WHERE destinations > 5
 AND total > tree_value_threshold
 
 MATCH p = shortest 1 (from_filter)-[:Tx]->()-[:Tx]->()
+  WITH NOT from.address IN ignore
+  AND NOT to.address IN ignore
 RETURN p
