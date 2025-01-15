@@ -102,6 +102,12 @@ pub enum Sub {
     },
     #[clap(subcommand)]
     Analytics(AnalyticsSub),
+
+    ExecuteQuery {
+        #[clap(long)]
+        /// .cql file with cypher query
+        query_file: PathBuf,
+    }
 }
 
 #[derive(Subcommand)]
@@ -279,7 +285,14 @@ impl WarehouseCli {
 
                     println!("{:#}", json!(&m.definite));
                 }
+
             },
+            Sub::ExecuteQuery { query_file } => {
+                let pool = try_db_connection_pool(self).await?;
+                let q_literal = std::fs::read_to_string(query_file)?;
+                let result = pool.run(neo4rs::query(&q_literal)).await?;
+                println!("{:#?}", result);
+            }
         };
         Ok(())
     }
