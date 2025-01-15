@@ -107,7 +107,7 @@ pub enum Sub {
         #[clap(long)]
         /// .cql file with cypher query
         query_file: PathBuf,
-    }
+    },
 }
 
 #[derive(Subcommand)]
@@ -285,7 +285,6 @@ impl WarehouseCli {
 
                     println!("{:#}", json!(&m.definite));
                 }
-
             },
             Sub::ExecuteQuery { query_file } => {
                 let pool = try_db_connection_pool(self).await?;
