@@ -6,11 +6,54 @@ use diem_crypto::HashValue;
 use diem_types::account_config::{NewBlockEvent, WithdrawEvent};
 use diem_types::contract_event::ContractEvent;
 use diem_types::{account_config::DepositEvent, transaction::SignedTransaction};
+use glob::glob;
 use libra_storage::read_tx_chunk::{load_chunk, load_tx_chunk_manifest};
 use libra_types::move_resource::coin_register_event::CoinRegisterEvent;
 use log::{error, info, warn};
 use serde_json::json;
 use std::path::Path;
+
+fn maybe_fix_manifest(archive_path: &Path) -> Result<()> {
+    let pattern = format!("{}/**/*.manifest", archive_path.display());
+    for f in glob(&pattern)? {
+        if let Some(f) = f.ok() {
+            let manifest = load_tx_chunk_manifest(&manifest_file)?;
+            manifest.chunks.iter_mut().map(|e| {
+                if e.proof.contains(".gz") {
+                    e.proof = *e.proof.trim_end_matches(".gz")
+                }
+            });
+            let literal = serde_json::to_string(&manifest)?;
+            std::fs::write(manifest_file, literal.as_bytes());
+            warn!(
+                "rewriting .manifest file to remove .gz paths, {}",
+                archive_path.display()
+            )
+        }
+    }
+    Ok(())
+}
+pub fn maybe_handle_gz(archive_path: &Path) -> Result<(PathBuf, Option<TempPath>)> {
+    let pattern = format!("{}/*.*.gz", archive_path.display());
+    if !glob(&pattern)?.is_empty() {
+        let (p, tp) = make_temp_unzipped(f, false);
+        maybe_fix_manifest(archive_path);
+        return Ok((p, Some(tp)));
+    }
+    // check if the files are .gz
+    // check if files are unzipped, skip next step
+    let pattern = format!("{}/**/*.proof", archive_path.display());
+    assert!(
+        !glob(&pattern)?.is_empty(),
+        "doesn't seem to be an decompressed archived"
+    );
+    // check if manifest file incorrectly has the .gz handle fix that.
+    // try to load it
+    let manifest = load_tx_chunk_manifest(&manifest_file)?;
+    maybe_fix_manifest(archive_path);
+
+    Ok((archive_path, None))
+}
 
 pub async fn extract_current_transactions(
     archive_path: &Path,
