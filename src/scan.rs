@@ -100,15 +100,13 @@ pub fn scan_dir_archive(
     content_opt: Option<BundleContent>,
 ) -> Result<ArchiveMap> {
     let path = parent_dir.canonicalize()?;
+    // filenames may be in .gz format
     let filename = content_opt.unwrap_or(BundleContent::Unknown).filename();
-    dbg!(&filename);
     let pattern = format!(
         "{}/**/{}",
         path.to_str().context("cannot parse starting dir")?,
         filename,
     );
-
-    dbg!(&pattern);
 
     let mut archive = BTreeMap::new();
 

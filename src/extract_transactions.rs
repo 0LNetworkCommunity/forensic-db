@@ -6,62 +6,11 @@ use diem_crypto::HashValue;
 use diem_types::account_config::{NewBlockEvent, WithdrawEvent};
 use diem_types::contract_event::ContractEvent;
 use diem_types::{account_config::DepositEvent, transaction::SignedTransaction};
-use glob::glob;
 use libra_storage::read_tx_chunk::{load_chunk, load_tx_chunk_manifest};
 use libra_types::move_resource::coin_register_event::CoinRegisterEvent;
 use log::{error, info, warn};
 use serde_json::json;
 use std::path::Path;
-
-// The manifest file might have written as .gz, when then should not be.
-// TODO: Deprecate when archives sources fixed (currently some epochs in V7 broken for epochs in Jan 2025)
-fn maybe_fix_manifest(archive_path: &Path) -> Result<()> {
-    let pattern = format!("{}/**/*.manifest", archive_path.display());
-    for f in glob(&pattern)? {
-        if let Some(f) = f.ok() {
-            let manifest = load_tx_chunk_manifest(&manifest_file)?;
-            manifest.chunks.iter_mut().map(|e| {
-                if e.proof.contains(".gz") {
-                    e.proof = *e.proof.trim_end_matches(".gz")
-                }
-            });
-            let literal = serde_json::to_string(&manifest)?;
-            std::fs::write(manifest_file, literal.as_bytes());
-            warn!(
-                "rewriting .manifest file to remove .gz paths, {}",
-                archive_path.display()
-            )
-        }
-    }
-    Ok(())
-}
-
-/// If we are using this tool with .gz files, we will unzip on the fly
-/// If the user prefers to not do on the fly, then they need to update
-/// their workflow to `gunzip -r` before starting this.
-pub fn maybe_handle_gz(archive_path: &Path) -> Result<(PathBuf, Option<TempPath>)> {
-    // maybe stuff isn't unzipped yet
-    let pattern = format!("{}/*.*.gz", archive_path.display());
-    if !glob(&pattern)?.is_empty() {
-        info!("Decompressing a temp folder. If you do not want to decompress files on the fly (which are not saved), then you workflow to do a `gunzip -r` before starting this.");
-        let (p, tp) = make_temp_unzipped(f, false);
-        maybe_fix_manifest(archive_path);
-        return Ok((p, Some(tp)));
-    }
-    // maybe the user unzipped the files
-
-    let pattern = format!("{}/**/*.proof", archive_path.display());
-    assert!(
-        !glob(&pattern)?.is_empty(),
-        "doesn't seem to be a decompressed archived"
-    );
-    // check if manifest file incorrectly has the .gz handle fix that.
-    // try to load it
-    let manifest = load_tx_chunk_manifest(&manifest_file)?;
-    maybe_fix_manifest(archive_path);
-
-    Ok((archive_path, None))
-}
 
 pub async fn extract_current_transactions(
     archive_path: &Path,
