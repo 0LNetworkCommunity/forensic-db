@@ -24,10 +24,11 @@ jobs:
       - name: setup env
         uses: ./.github/actions/build_env
 
-      - uses: Swatinem/rust-cache@v2.7.3
+      - uses: Swatinem/rust-cache@v2
         with:
           shared-key: "forensic-db"
           cache-all-crates: true
+          cache-on-failure: true
 
       - name: test
         working-directory: ./
