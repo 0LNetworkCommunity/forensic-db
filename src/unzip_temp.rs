@@ -11,23 +11,6 @@ use std::{
 };
 use tar::Archive;
 
-// TODO: decompress the files on demand, and don't take up the disk space
-
-// take a single archive file, and get the temp location of the unzipped file
-// NOTE: you must return the TempPath to the caller so otherwise when it
-// drops out of scope the files will be deleted, this is intentional.
-pub fn test_helper_temp_unzipped(
-    archive_file: &Path,
-    tar_opt: bool,
-) -> Result<(PathBuf, TempPath)> {
-    let temp_dir = TempPath::new();
-    temp_dir.create_as_dir()?;
-
-    let path = decompress_file(archive_file, temp_dir.path(), tar_opt)?;
-
-    Ok((path, temp_dir))
-}
-
 /// Decompresses a gzip-compressed file at `src_path` and saves the decompressed contents
 /// to `dst_dir` with the same file name, but without the `.gz` extension.
 fn decompress_file(src_path: &Path, dst_dir: &Path, tar_opt: bool) -> Result<PathBuf> {
@@ -151,4 +134,19 @@ pub fn maybe_handle_gz(archive_path: &Path) -> Result<(PathBuf, Option<TempPath>
     maybe_fix_manifest(archive_path)?;
 
     Ok((archive_path.to_path_buf(), None))
+}
+
+// take a single archive file, and get the temp location of the unzipped file
+// NOTE: you must return the TempPath to the caller so otherwise when it
+// drops out of scope the files will be deleted, this is intentional.
+pub fn test_helper_temp_unzipped(
+    archive_file: &Path,
+    tar_opt: bool,
+) -> Result<(PathBuf, TempPath)> {
+    let temp_dir = TempPath::new();
+    temp_dir.create_as_dir()?;
+
+    let path = decompress_file(archive_file, temp_dir.path(), tar_opt)?;
+
+    Ok((path, temp_dir))
 }
