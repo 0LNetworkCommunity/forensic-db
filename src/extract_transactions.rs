@@ -13,6 +13,8 @@ use log::{error, info, warn};
 use serde_json::json;
 use std::path::Path;
 
+// The manifest file might have written as .gz, when then should not be.
+// TODO: Deprecate when archives sources fixed (currently some epochs in V7 broken for epochs in Jan 2025)
 fn maybe_fix_manifest(archive_path: &Path) -> Result<()> {
     let pattern = format!("{}/**/*.manifest", archive_path.display());
     for f in glob(&pattern)? {
@@ -33,19 +35,25 @@ fn maybe_fix_manifest(archive_path: &Path) -> Result<()> {
     }
     Ok(())
 }
+
+/// If we are using this tool with .gz files, we will unzip on the fly
+/// If the user prefers to not do on the fly, then they need to update
+/// their workflow to `gunzip -r` before starting this.
 pub fn maybe_handle_gz(archive_path: &Path) -> Result<(PathBuf, Option<TempPath>)> {
+    // maybe stuff isn't unzipped yet
     let pattern = format!("{}/*.*.gz", archive_path.display());
     if !glob(&pattern)?.is_empty() {
+        info!("Decompressing a temp folder. If you do not want to decompress files on the fly (which are not saved), then you workflow to do a `gunzip -r` before starting this.");
         let (p, tp) = make_temp_unzipped(f, false);
         maybe_fix_manifest(archive_path);
         return Ok((p, Some(tp)));
     }
-    // check if the files are .gz
-    // check if files are unzipped, skip next step
+    // maybe the user unzipped the files
+
     let pattern = format!("{}/**/*.proof", archive_path.display());
     assert!(
         !glob(&pattern)?.is_empty(),
-        "doesn't seem to be an decompressed archived"
+        "doesn't seem to be a decompressed archived"
     );
     // check if manifest file incorrectly has the .gz handle fix that.
     // try to load it
