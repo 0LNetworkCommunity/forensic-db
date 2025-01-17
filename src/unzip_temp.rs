@@ -101,10 +101,11 @@ fn maybe_fix_manifest(archive_path: &Path) -> Result<()> {
             }
         });
         let literal = serde_json::to_string(&manifest)?;
-        std::fs::write(manifest_path, literal.as_bytes())?;
+        println!("new manifest:\n{:#}", &literal);
+        std::fs::write(&manifest_path, literal.as_bytes())?;
         warn!(
             "rewriting .manifest file to remove .gz paths, {}",
-            archive_path.display()
+            manifest_path.display()
         )
     }
     Ok(())
