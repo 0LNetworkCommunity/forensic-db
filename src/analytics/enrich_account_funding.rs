@@ -14,9 +14,6 @@ use crate::schema_exchange_orders::{ExchangeOrder, OrderType};
 #[cfg(test)]
 use crate::date_util::parse_date;
 
-#[cfg(test)]
-use crate::date_util::parse_date;
-
 #[derive(Default, Debug, Clone, Deserialize, Serialize)]
 pub struct AccountDataAlt {
     pub current_balance: f64,

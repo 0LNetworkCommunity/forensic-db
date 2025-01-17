@@ -25,8 +25,8 @@ pub struct WarehouseCli {
     #[clap(long, short('r'))]
     /// URI of graphDB e.g. neo4j+s://localhost:port
     db_uri: Option<String>,
-    #[clap(long, short('u'))]
 
+    #[clap(long, short('u'))]
     /// username of db
     db_username: Option<String>,
     #[clap(long, short('p'))]
@@ -117,6 +117,7 @@ pub enum AnalyticsSub {
         #[clap(long)]
         /// start day (exclusive) of trades YYYY-MM-DD
         start_day: String,
+
         #[clap(long)]
         /// end day (exclusive) of trades YYYY-MM-DD
         end_day: String,
@@ -125,10 +126,11 @@ pub enum AnalyticsSub {
         /// slow search producing likely candidates at each day
         /// requires top n # for length of initial list to scan
         replay_balances: Option<u64>,
-        #[clap(long)]
 
+        #[clap(long)]
         /// get perfect deposit matches on dump cases, requires tolerance value of 1.0 or more
         match_simple_dumps: Option<f64>,
+
         #[clap(long)]
         /// clear cache for local matches
         clear_cache: bool,
