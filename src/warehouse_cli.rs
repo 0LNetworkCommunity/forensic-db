@@ -118,6 +118,7 @@ pub enum AnalyticsSub {
         #[clap(long)]
         /// start day (exclusive) of trades YYYY-MM-DD
         start_day: String,
+
         #[clap(long)]
         /// end day (exclusive) of trades YYYY-MM-DD
         end_day: String,
@@ -130,6 +131,7 @@ pub enum AnalyticsSub {
         #[clap(long)]
         /// get perfect deposit matches on dump cases, requires tolerance value of 1.0 or more
         match_simple_dumps: Option<f64>,
+
         #[clap(long)]
         /// clear cache for local matches
         clear_cache: bool,
