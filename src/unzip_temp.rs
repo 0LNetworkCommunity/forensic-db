@@ -121,7 +121,8 @@ pub fn maybe_handle_gz(archive_path: &Path) -> Result<(PathBuf, Option<TempPath>
         let temp_dir = TempPath::new();
         temp_dir.create_as_dir()?;
         decompress_all_gz(archive_path, temp_dir.path())?;
-        maybe_fix_manifest(archive_path)?;
+        // fix the manifest in the TEMP path
+        maybe_fix_manifest(temp_dir.path())?;
         return Ok((temp_dir.path().to_path_buf(), Some(temp_dir)));
     }
     // maybe the user unzipped the files
