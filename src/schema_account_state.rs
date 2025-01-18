@@ -60,10 +60,11 @@ impl WarehouseAccState {
     /// Note original data was in an RFC rfc3339 with Z for UTC, Cypher seems to prefer with offsets +00000
     pub fn to_cypher_object_template(&self) -> String {
         format!(
-            r#"{{address: "{}", balance: {}, version: {}, sequence_num: {}, slow_locked: {}, slow_transfer: {}, framework_version: "{}", donor_voice: {} }}"#,
+            r#"{{address: "{}", balance: {}, version: {}, epoch: {}, sequence_num: {}, slow_locked: {}, slow_transfer: {}, framework_version: "{}", donor_voice: {} }}"#,
             self.address.to_hex_literal(),
             self.balance,
             self.time.version,
+            self.time.epoch,
             self.sequence_num,
             self.slow_wallet_locked,
             self.slow_wallet_transferred,
@@ -91,7 +92,7 @@ impl WarehouseAccState {
   UNWIND tx_data AS tx
 
   MERGE (addr:Account {{address: tx.address}})
-  MERGE (snap:Snapshot {{address: tx.address, balance: tx.balance, framework_version: tx.framework_version, version: tx.version, sequence_num: tx.sequence_num, slow_locked: tx.slow_locked, slow_transfer: tx.slow_transfer, donor_voice: tx.donor_voice }})
+  MERGE (snap:Snapshot {{address: tx.address, balance: tx.balance, framework_version: tx.framework_version, epoch: tx.epoch, version: tx.version, sequence_num: tx.sequence_num, slow_locked: tx.slow_locked, slow_transfer: tx.slow_transfer, donor_voice: tx.donor_voice }})
   MERGE (addr)-[rel:State {{version: tx.version}} ]->(snap)
 
   RETURN
