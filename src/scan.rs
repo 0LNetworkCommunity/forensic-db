@@ -101,7 +101,7 @@ pub fn scan_dir_archive(
     // filenames may be in .gz format
     let filename = content_opt.unwrap_or(BundleContent::Unknown).filename();
     let pattern = format!(
-        "{}/**/{}.*", // also try .gz
+        "{}/**/{}*", // also try .gz
         path.to_str().context("cannot parse starting dir")?,
         filename,
     );
