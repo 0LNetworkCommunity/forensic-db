@@ -3,7 +3,7 @@ use diem_temppath::TempPath;
 use flate2::read::GzDecoder;
 use glob::glob;
 use libra_storage::read_tx_chunk::load_tx_chunk_manifest;
-use log::{info, warn};
+use log::{debug, info, warn};
 use std::{
     fs::File,
     io::copy,
@@ -95,18 +95,24 @@ fn maybe_fix_manifest(archive_path: &Path) -> Result<()> {
     let pattern = format!("{}/**/*.manifest", archive_path.display());
     for manifest_path in glob(&pattern)?.flatten() {
         let mut manifest = load_tx_chunk_manifest(&manifest_path)?;
+        debug!("old manifest:\n{:#}", &serde_json::to_string(&manifest)?);
+
         manifest.chunks.iter_mut().for_each(|e| {
             if e.proof.contains(".gz") {
                 e.proof = e.proof.trim_end_matches(".gz").to_string();
             }
+            if e.transactions.contains(".gz") {
+                e.transactions = e.transactions.trim_end_matches(".gz").to_string();
+            }
         });
         let literal = serde_json::to_string(&manifest)?;
-        println!("new manifest:\n{:#}", &literal);
-        std::fs::write(&manifest_path, literal.as_bytes())?;
+
         warn!(
-            "rewriting .manifest file to remove .gz paths, {}",
-            manifest_path.display()
-        )
+            "rewriting .manifest file to remove .gz paths, {}, {:#}",
+            manifest_path.display(),
+            &literal
+        );
+        std::fs::write(&manifest_path, literal.as_bytes())?;
     }
     Ok(())
 }
@@ -121,10 +127,14 @@ pub fn maybe_handle_gz(archive_path: &Path) -> Result<(PathBuf, Option<TempPath>
         info!("Decompressing a temp folder. If you do not want to decompress files on the fly (which are not saved), then you workflow to do a `gunzip -r` before starting this.");
         let temp_dir = TempPath::new();
         temp_dir.create_as_dir()?;
-        decompress_all_gz(archive_path, temp_dir.path())?;
+        // need to preserve the parent dir name in temp, since the manifest files reference it.
+        let dir_name = archive_path.file_name().unwrap().to_str().unwrap();
+        let new_archive_path = temp_dir.path().join(dir_name);
+        std::fs::create_dir_all(&new_archive_path)?;
+        decompress_all_gz(archive_path, &new_archive_path)?;
         // fix the manifest in the TEMP path
         maybe_fix_manifest(temp_dir.path())?;
-        return Ok((temp_dir.path().to_path_buf(), Some(temp_dir)));
+        return Ok((new_archive_path, Some(temp_dir)));
     }
     // maybe the user unzipped the files
 
