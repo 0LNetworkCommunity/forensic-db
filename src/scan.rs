@@ -116,7 +116,7 @@ pub fn scan_dir_archive(
                     .context("no parent dir found")?
                     .to_owned();
                 let contents = test_content(&manifest_path);
-                dbg!(&contents);
+
                 let archive_id = dir.file_name().unwrap().to_str().unwrap().to_owned();
                 let mut m = ManifestInfo {
                     archive_dir: dir.clone(),
