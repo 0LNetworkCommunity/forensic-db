@@ -29,9 +29,11 @@ pub struct WarehouseCli {
     #[clap(long, short('u'))]
     /// username of db
     db_username: Option<String>,
+
     #[clap(long, short('p'))]
     /// db password
     db_password: Option<String>,
+
     #[clap(long, short('q'))]
     /// force clear queue
     clear_queue: bool,
