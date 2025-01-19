@@ -25,6 +25,7 @@ pub struct WarehouseCli {
     #[clap(long, short('r'))]
     /// URI of graphDB e.g. neo4j+s://localhost:port
     db_uri: Option<String>,
+
     #[clap(long, short('u'))]
     /// username of db
     db_username: Option<String>,
