@@ -102,8 +102,8 @@ MERGE (snap:Snapshot {{
 MERGE (addr)-[rel:State {{version: tx.version}}]->(snap)
 
 WITH snap, tx
-WHERE tx.miner_state > 0
-SET snap.miner_state = tx.miner_state
+WHERE tx.miner_height > 0
+SET snap.miner_height = tx.miner_height
 
 RETURN COUNT(snap) AS merged_snapshots
 
