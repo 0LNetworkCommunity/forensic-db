@@ -4,6 +4,7 @@ use anyhow::Result;
 use diem_types::account_view::AccountView;
 use libra_backwards_compatibility::version_five::{
     balance_v5::BalanceResourceV5,
+    ol_tower_state::TowerStateResource,
     ol_wallet::SlowWalletResourceV5,
     state_snapshot_v5::{v5_accounts_from_manifest_path, v5_read_from_snapshot_manifest},
 };
@@ -59,6 +60,10 @@ pub async fn extract_v5_snapshot(v5_manifest_path: &Path) -> Result<Vec<Warehous
                 if let Ok(sw) = acc.get_resource::<SlowWalletResourceV5>() {
                     s.slow_wallet_locked = sw.unlocked;
                     s.slow_wallet_transferred = sw.transferred;
+                }
+
+                if let Ok(tower) = acc.get_resource::<TowerStateResource>() {
+                    s.miner_height = Some(tower.verified_tower_height);
                 }
 
                 warehouse_state.push(s);
