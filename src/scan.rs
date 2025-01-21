@@ -44,7 +44,8 @@ impl ManifestInfo {
                     self.version = FrameworkVersion::V7;
                 };
 
-                if v5_read_from_snapshot_manifest(&self.archive_dir).is_ok() {
+                if v5_read_from_snapshot_manifest(&self.archive_dir.join("state.manifest")).is_ok()
+                {
                     self.version = FrameworkVersion::V5;
                 }
             }
@@ -60,7 +61,7 @@ impl ManifestInfo {
         FrameworkVersion::Unknown
     }
 }
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub enum FrameworkVersion {
     #[default]
     Unknown,
@@ -75,7 +76,7 @@ impl fmt::Display for FrameworkVersion {
     }
 }
 
-#[derive(Clone, Debug, clap::ValueEnum)]
+#[derive(Clone, Debug, clap::ValueEnum, PartialEq)]
 pub enum BundleContent {
     Unknown,
     StateSnapshot,
@@ -108,12 +109,9 @@ pub fn scan_dir_archive(
         filename,
     );
 
-    dbg!(&pattern);
-
     let mut archive = BTreeMap::new();
 
     for entry in glob(&pattern)? {
-        dbg!(&entry);
         match entry {
             Ok(manifest_path) => {
                 let dir = manifest_path
@@ -121,7 +119,6 @@ pub fn scan_dir_archive(
                     .context("no parent dir found")?
                     .to_owned();
                 let contents = test_content(&manifest_path);
-                dbg!(&contents);
                 let archive_id = dir.file_name().unwrap().to_str().unwrap().to_owned();
                 let mut m = ManifestInfo {
                     archive_dir: dir.clone(),
