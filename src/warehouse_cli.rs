@@ -1,6 +1,6 @@
 use anyhow::{bail, Result};
 use clap::{Parser, Subcommand};
-use log::{error, info, warn};
+use log::{debug, error, info, warn};
 use neo4rs::Graph;
 use serde_json::json;
 use std::path::PathBuf;
@@ -157,6 +157,7 @@ impl WarehouseCli {
                 batch_size,
             } => {
                 let am = scan_dir_archive(archive_dir, None)?;
+                debug!("archive map: {:?}", &am);
                 if am.0.is_empty() {
                     error!("cannot find .manifest file under {}", archive_dir.display());
                 }

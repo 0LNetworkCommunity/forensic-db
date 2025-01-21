@@ -24,10 +24,11 @@ use crate::{
 };
 
 // uses libra-compatibility to parse the v5 manifest files, and decode v5 format bytecode into current version data structures (v6+);
-pub async fn extract_v5_snapshot(v5_manifest_path: &Path) -> Result<Vec<WarehouseAccState>> {
+pub async fn extract_v5_snapshot(archive_path: &Path) -> Result<Vec<WarehouseAccState>> {
+    let v5_manifest_path = archive_path.join("state.manifest");
     // NOTE: this is duplicated with next step.
-    let manifest_data = v5_read_from_snapshot_manifest(v5_manifest_path)?;
-    let account_blobs = v5_accounts_from_manifest_path(v5_manifest_path).await?;
+    let manifest_data = v5_read_from_snapshot_manifest(&v5_manifest_path)?;
+    let account_blobs = v5_accounts_from_manifest_path(&v5_manifest_path).await?;
 
     // TODO: see below, massively inefficient
     let time = WarehouseTime {
