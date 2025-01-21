@@ -20,18 +20,20 @@ pub struct WarehouseAccState {
     pub slow_wallet_locked: u64,
     pub slow_wallet_transferred: u64,
     pub donor_voice_acc: bool,
+    pub miner_height: Option<u64>,
 }
 
 impl Default for WarehouseAccState {
     fn default() -> Self {
         Self {
             address: AccountAddress::ZERO,
-            time: Default::default(),
-            sequence_num: Default::default(),
-            balance: Default::default(),
-            slow_wallet_locked: Default::default(),
-            slow_wallet_transferred: Default::default(),
+            sequence_num: 0,
+            balance: 0,
+            slow_wallet_locked: 0,
+            slow_wallet_transferred: 0,
             donor_voice_acc: false,
+            miner_height: None,
+            time: WarehouseTime::default(),
         }
     }
 }
@@ -40,12 +42,7 @@ impl WarehouseAccState {
     pub fn new(address: AccountAddress) -> Self {
         Self {
             address,
-            sequence_num: 0,
-            time: WarehouseTime::default(),
-            balance: 0,
-            slow_wallet_locked: 0,
-            slow_wallet_transferred: 0,
-            donor_voice_acc: false,
+            ..Default::default()
         }
     }
     pub fn set_time(&mut self, timestamp: u64, version: u64, epoch: u64) {
@@ -60,7 +57,7 @@ impl WarehouseAccState {
     /// Note original data was in an RFC rfc3339 with Z for UTC, Cypher seems to prefer with offsets +00000
     pub fn to_cypher_object_template(&self) -> String {
         format!(
-            r#"{{address: "{}", balance: {}, version: {}, sequence_num: {}, slow_locked: {}, slow_transfer: {}, framework_version: "{}", donor_voice: {} }}"#,
+            r#"{{address: "{}", balance: {}, version: {}, sequence_num: {}, slow_locked: {}, slow_transfer: {}, framework_version: "{}", donor_voice: {}, miner_height: {} }}"#,
             self.address.to_hex_literal(),
             self.balance,
             self.time.version,
@@ -69,6 +66,7 @@ impl WarehouseAccState {
             self.slow_wallet_transferred,
             self.time.framework_version,
             self.donor_voice_acc,
+            self.miner_height.unwrap_or(0)
         )
     }
 
@@ -87,15 +85,27 @@ impl WarehouseAccState {
     pub fn cypher_batch_insert_str(list_str: &str) -> String {
         format!(
             r#"
-  WITH {list_str} AS tx_data
-  UNWIND tx_data AS tx
+WITH {list_str} AS tx_data
+UNWIND tx_data AS tx
 
-  MERGE (addr:Account {{address: tx.address}})
-  MERGE (snap:Snapshot {{address: tx.address, balance: tx.balance, framework_version: tx.framework_version, version: tx.version, sequence_num: tx.sequence_num, slow_locked: tx.slow_locked, slow_transfer: tx.slow_transfer, donor_voice: tx.donor_voice }})
-  MERGE (addr)-[rel:State {{version: tx.version}} ]->(snap)
+MERGE (addr:Account {{address: tx.address}})
+MERGE (snap:Snapshot {{
+    address: tx.address,
+    balance: tx.balance,
+    framework_version: tx.framework_version,
+    version: tx.version,
+    sequence_num: tx.sequence_num,
+    slow_locked: tx.slow_locked,
+    slow_transfer: tx.slow_transfer,
+    donor_voice: tx.donor_voice
+}})
+MERGE (addr)-[rel:State {{version: tx.version}}]->(snap)
 
-  RETURN
-      COUNT(snap) AS merged_snapshots
+WITH snap, tx
+WHERE tx.miner_state > 0
+SET snap.miner_state = tx.miner_state
+
+RETURN COUNT(snap) AS merged_snapshots
 
 "#
         )
