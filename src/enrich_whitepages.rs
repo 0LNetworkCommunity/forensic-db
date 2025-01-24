@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use diem_types::account_address::AccountAddress;
-use log::info;
+use log::{error, info};
 use neo4rs::Graph;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::path::Path;
@@ -23,7 +23,13 @@ where
     if !lower.contains("0x") {
         lower = format!("0x{}", lower);
     }
-    Ok(AccountAddress::from_hex_literal(&lower).ok())
+    match AccountAddress::from_hex_literal(&lower) {
+        Ok(addr) => Ok(Some(addr)),
+        Err(_) => {
+            error!("could not parse address: {}", &s);
+            Ok(None)
+        }
+    }
 }
 
 impl Whitepages {
@@ -33,12 +39,16 @@ impl Whitepages {
     }
 
     pub fn to_cypher_object_template(&self) -> String {
-        format!(
-            r#"{{owner: "{}", address: "{}" }}"#,
-            self.owner.as_ref().unwrap(),
-            self.address.as_ref().unwrap().to_hex_literal(),
-            // self.address_note,
-        )
+        if let Some(addr) = &self.address {
+            format!(
+                r#"{{owner: "{}", address: "{}"}}"#,
+                self.owner.as_ref().unwrap(),
+                addr.to_hex_literal(),
+            )
+        } else {
+            error!("missing address at {:#?}", &self);
+            "".to_string()
+        }
     }
 
     /// create a cypher query string for the map object
