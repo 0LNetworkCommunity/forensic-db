@@ -1,7 +1,10 @@
 mod support;
 
 use anyhow::Result;
-use libra_forensic_db::{scan::{scan_dir_archive, BundleContent, FrameworkVersion}, unzip_temp::make_temp_unzipped};
+use libra_forensic_db::{
+    scan::{scan_dir_archive, BundleContent, FrameworkVersion},
+    unzip_temp::make_temp_unzipped,
+};
 use support::fixtures;
 
 #[test]
@@ -31,7 +34,6 @@ fn test_scan_dir_for_v5_manifests() -> Result<()> {
 //     assert!(s.0.len() == 1);
 //     Ok(())
 // }
-
 
 #[test]
 fn test_scan_dir_for_v7_manifests() -> Result<()> {
