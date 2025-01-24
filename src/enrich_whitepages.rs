@@ -1,35 +1,17 @@
+use crate::util::de_address_from_any_string;
 use anyhow::{Context, Result};
 use diem_types::account_address::AccountAddress;
 use log::{error, info};
 use neo4rs::Graph;
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Whitepages {
-    #[serde(deserialize_with = "from_any_string")]
+    #[serde(deserialize_with = "de_address_from_any_string")]
     address: Option<AccountAddress>,
     owner: Option<String>,
     address_note: Option<String>,
-}
-
-fn from_any_string<'de, D>(deserializer: D) -> Result<Option<AccountAddress>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let s: &str = Deserialize::deserialize(deserializer)?;
-    // do better hex decoding than this
-    let mut lower = s.to_ascii_lowercase();
-    if !lower.contains("0x") {
-        lower = format!("0x{}", lower);
-    }
-    match AccountAddress::from_hex_literal(&lower) {
-        Ok(addr) => Ok(Some(addr)),
-        Err(_) => {
-            error!("could not parse address: {}", &s);
-            Ok(None)
-        }
-    }
 }
 
 impl Whitepages {
