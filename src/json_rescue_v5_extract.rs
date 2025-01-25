@@ -32,6 +32,12 @@ pub fn extract_v5_json_rescue(
     let txs: Vec<TransactionViewV5> = serde_json::from_str(&json)
         .map_err(|e| anyhow!("could not parse JSON to TransactionViewV5, {:?}", e))?;
 
+    decode_transaction_dataview_v5(&txs)
+}
+
+pub fn decode_transaction_dataview_v5(
+    txs: &[TransactionViewV5],
+) -> Result<(Vec<WarehouseTxMaster>, Vec<WarehouseEvent>, Vec<String>)> {
     let mut tx_vec = vec![];
     let event_vec = vec![];
     let mut unique_functions = vec![];
@@ -53,11 +59,11 @@ pub fn extract_v5_json_rescue(
                     unique_functions.push(wtxs.function.clone());
                 }
 
-                decode_transaction_args(&mut wtxs, &t.bytes)?;
+                decode_entry_function_v5(&mut wtxs, &t.bytes)?;
 
                 // TODO:
                 // wtxs.events
-                // TODO:
+
                 wtxs.block_timestamp = timestamp;
 
                 // TODO: create arg to exclude tx without counter party
@@ -92,7 +98,7 @@ pub fn extract_v5_json_rescue(
     Ok((tx_vec, event_vec, unique_functions))
 }
 
-pub fn decode_transaction_args(wtx: &mut WarehouseTxMaster, tx_bytes: &[u8]) -> Result<()> {
+pub fn decode_entry_function_v5(wtx: &mut WarehouseTxMaster, tx_bytes: &[u8]) -> Result<()> {
     // test we can bcs decode to the transaction object
     let t: TransactionV5 = bcs::from_bytes(tx_bytes).map_err(|err| {
         anyhow!(
