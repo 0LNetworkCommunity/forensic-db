@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum RelationLabel {
     Tx, // undefined tx
-    Transfer(AccountAddress),
+    Transfer(AccountAddress, u64),
     Onboarding(AccountAddress),
     Vouch(AccountAddress),
     Configuration,
@@ -31,7 +31,7 @@ impl RelationLabel {
     pub fn to_cypher_label(&self) -> String {
         match self {
             RelationLabel::Tx => "Tx".to_owned(),
-            RelationLabel::Transfer(_) => "Tx".to_owned(),
+            RelationLabel::Transfer(_, _) => "Tx".to_owned(),
             RelationLabel::Onboarding(_) => "Onboarding".to_owned(),
             RelationLabel::Vouch(_) => "Vouch".to_owned(),
             RelationLabel::Configuration => "Configuration".to_owned(),
@@ -42,7 +42,7 @@ impl RelationLabel {
     pub fn get_recipient(&self) -> Option<AccountAddress> {
         match &self {
             RelationLabel::Tx => None,
-            RelationLabel::Transfer(account_address) => Some(*account_address),
+            RelationLabel::Transfer(account_address, _) => Some(*account_address),
             RelationLabel::Onboarding(account_address) => Some(*account_address),
             RelationLabel::Vouch(account_address) => Some(*account_address),
             RelationLabel::Configuration => None,

@@ -69,7 +69,7 @@ pub fn decode_transaction_dataview_v5(
                 // TODO: create arg to exclude tx without counter party
                 match &wtxs.relation_label {
                     RelationLabel::Tx => {}
-                    RelationLabel::Transfer(_) => tx_vec.push(wtxs),
+                    RelationLabel::Transfer(_, _) => tx_vec.push(wtxs),
                     RelationLabel::Onboarding(_) => tx_vec.push(wtxs),
                     RelationLabel::Vouch(_) => tx_vec.push(wtxs),
                     RelationLabel::Configuration => {}
@@ -114,14 +114,19 @@ pub fn decode_entry_function_v5(wtx: &mut WarehouseTxMaster, tx_bytes: &[u8]) ->
                 wtx.entry_function = Some(EntryFunctionArgs::V5(sf.to_owned()));
                 // TODO: some script functions have very large payloads which clog the e.g. Miner. So those are only added for the catch-all txs which don't fall into categories we are interested in.
                 match sf {
-                    ScriptFunctionCallGenesis::BalanceTransfer { destination, .. } => {
-                        wtx.relation_label =
-                            RelationLabel::Transfer(cast_legacy_account(destination)?);
+                    ScriptFunctionCallGenesis::BalanceTransfer {
+                        destination,
+                        unscaled_value,
+                    } => {
+                        wtx.relation_label = RelationLabel::Transfer(
+                            cast_legacy_account(destination)?,
+                            *unscaled_value,
+                        );
 
                         wtx.entry_function = Some(EntryFunctionArgs::V5(sf.to_owned()));
                     }
-                    ScriptFunctionCallGenesis::AutopayCreateInstruction { payee, .. } => {
-                        wtx.relation_label = RelationLabel::Transfer(cast_legacy_account(payee)?);
+                    ScriptFunctionCallGenesis::AutopayCreateInstruction { .. } => {
+                        wtx.relation_label = RelationLabel::Configuration;
                         wtx.entry_function = Some(EntryFunctionArgs::V5(sf.to_owned()));
                     }
                     ScriptFunctionCallGenesis::CreateAccUser { .. } => {
