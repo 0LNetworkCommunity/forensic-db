@@ -3,7 +3,7 @@ use anyhow::Result;
 use diem_crypto::HashValue;
 
 use libra_forensic_db::{
-    cypher_templates::{write_batch_tx_string, write_batch_user_create},
+    cypher_templates::{alt_write_batch_tx_string, write_batch_user_create},
     extract_transactions::extract_current_transactions,
     load::try_load_one_archive,
     load_tx_cypher::tx_batch,
@@ -120,7 +120,7 @@ async fn insert_with_cypher_string() -> Result<()> {
 
     let list_str = WarehouseTxMaster::to_cypher_map(&list);
 
-    let cypher_string = write_batch_tx_string(&list_str);
+    let cypher_string = alt_write_batch_tx_string(&list_str);
 
     let c = start_neo4j_container();
     let port = c.get_host_port_ipv4(7687);

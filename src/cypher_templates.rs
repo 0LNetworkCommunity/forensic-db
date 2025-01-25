@@ -55,7 +55,6 @@ MERGE (from:Account {{address: tx.sender}})
 MERGE (to:Account {{address: tx.recipient}})
 
 // Dynamically set the relationship label using a subquery
-CALL {{
     WITH from, to, tx
     CALL {{
         WITH tx
@@ -66,6 +65,7 @@ CALL {{
             ELSE "Unknown" // Default for unexpected or missing values
         END AS dynamicLabel
     }}
+    WITH from, to, tx, dynamicLabel
     // Use dynamicLabel to create the relationship
     MERGE (from)-[rel:`${{dynamicLabel}}` {{tx_hash: tx.tx_hash}}]->(to)
     ON CREATE SET
@@ -82,7 +82,6 @@ CALL {{
         SET rel += tx.args
     )
     RETURN rel
-  }}
 
 // Handle cumulative TotalTx relationships if `tx.amount > 0`
 // FOREACH (_ IN CASE WHEN tx.amount > 0 THEN [1] ELSE [] END |
