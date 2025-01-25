@@ -6,7 +6,7 @@ use libra_backwards_compatibility::sdk::{
     v7_libra_framework_sdk_builder::EntryFunctionCall as V7EntryFunctionCall,
 };
 
-/// EntryFuntion decoding for V6, V7 eras
+/// EntryFunction decoding for V6, V7 eras
 pub fn decode_entry_function_all_versions(
     user_tx: &SignedTransaction,
     events: &[WarehouseEvent],

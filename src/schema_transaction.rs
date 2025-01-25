@@ -49,6 +49,13 @@ impl RelationLabel {
             RelationLabel::Miner => None,
         }
     }
+
+    pub fn get_amount(&self) -> u64 {
+        match &self {
+            RelationLabel::Transfer(_, amount) => *amount,
+            _ => 0,
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -128,7 +135,7 @@ impl WarehouseTxMaster {
         };
 
         format!(
-            r#"{{ args: {maybe_args_here}, tx_hash: "{}", block_datetime: datetime("{}"), block_timestamp: {}, relation: "{}", function: "{}", sender: "{}", recipient: "{}"}}"#,
+            r#"{{ args: {maybe_args_here}, tx_hash: "{}", block_datetime: datetime("{}"), block_timestamp: {}, relation: "{}", function: "{}", sender: "{}", recipient: "{}", amount: {}}}"#,
             self.tx_hash.to_hex_literal(),
             self.block_datetime.to_rfc3339(),
             self.block_timestamp,
@@ -140,6 +147,7 @@ impl WarehouseTxMaster {
                 .get_recipient()
                 .unwrap_or(self.sender)
                 .to_hex_literal(),
+            self.relation_label.get_amount(),
             maybe_args_here = tx_args,
         )
     }
