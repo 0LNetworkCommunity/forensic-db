@@ -30,8 +30,8 @@ pub enum RelationLabel {
 impl RelationLabel {
     pub fn to_cypher_label(&self) -> String {
         match self {
-            RelationLabel::Tx => "Tx".to_owned(),
-            RelationLabel::Transfer(_, _) => "Tx".to_owned(),
+            RelationLabel::Tx => "MiscTx".to_owned(),
+            RelationLabel::Transfer(_, _) => "Transfer".to_owned(),
             RelationLabel::Onboarding(_) => "Onboarding".to_owned(),
             RelationLabel::Vouch(_) => "Vouch".to_owned(),
             RelationLabel::Configuration => "Configuration".to_owned(),

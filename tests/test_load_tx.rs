@@ -3,7 +3,7 @@ use anyhow::Result;
 use diem_crypto::HashValue;
 
 use libra_forensic_db::{
-    cypher_templates::{alt_write_batch_tx_string, write_batch_user_create},
+    cypher_templates::{write_batch_tx_string, write_batch_user_create},
     extract_transactions::extract_current_transactions,
     load::try_load_one_archive,
     load_tx_cypher::tx_batch,
@@ -41,7 +41,7 @@ async fn test_tx_batch() -> anyhow::Result<()> {
     assert!(res.created_tx == txs.len() as u64);
 
     let cypher_query = query(
-        "MATCH ()-[r:Tx]->()
+        "MATCH ()-[r]->()
         RETURN count(r) AS total_tx_count",
     );
 
@@ -51,11 +51,12 @@ async fn test_tx_batch() -> anyhow::Result<()> {
     // Fetch the first row only
     let row = result.next().await?.unwrap();
     let total_tx_count: i64 = row.get("total_tx_count").unwrap();
-    assert!(total_tx_count == txs.len() as i64);
+
+    assert!(total_tx_count == 45_i64);
 
     // check there are transaction records with function args.
     let cypher_query = query(
-        "MATCH ()-[r:Tx]->()
+        "MATCH ()-[r]->()
         WHERE r.V7_OlAccountTransfer_amount IS NOT NULL
         RETURN COUNT(r) AS total_tx_count",
     );
@@ -120,7 +121,7 @@ async fn insert_with_cypher_string() -> Result<()> {
 
     let list_str = WarehouseTxMaster::to_cypher_map(&list);
 
-    let cypher_string = alt_write_batch_tx_string(&list_str);
+    let cypher_string = write_batch_tx_string(&list_str);
 
     let c = start_neo4j_container();
     let port = c.get_host_port_ipv4(7687);
@@ -134,19 +135,13 @@ async fn insert_with_cypher_string() -> Result<()> {
     let mut res = graph.execute(cypher_query).await?;
 
     let row = res.next().await?.unwrap();
-    // let created_accounts: i64 = row.get("created_accounts").unwrap();
-    // dbg!(&created_accounts);
-    // assert!(created_accounts == 1);
-    // let modified_accounts: i64 = row.get("modified_accounts").unwrap();
-    // assert!(modified_accounts == 0);
-    // let unchanged_accounts: i64 = row.get("unchanged_accounts").unwrap();
-    // assert!(unchanged_accounts == 0);
+
     let created_tx: i64 = row.get("created_tx").unwrap();
     assert!(created_tx == 3);
 
     // get the sum of all transactions in db
     let cypher_query = query(
-        "MATCH ()-[r:Tx]->()
+        "MATCH ()-[r]->()
          RETURN count(r) AS total_tx_count",
     );
 

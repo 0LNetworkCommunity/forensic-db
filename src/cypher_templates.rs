@@ -1,50 +1,50 @@
 //! organic free trade template literals for cypher queries
 use anyhow::{Context, Result};
 
+// // TODO move this to a .CQL file so we can lint and debug
+// pub fn write_batch_tx_string(list_str: &str) -> String {
+//     format!(
+//         r#"
+// WITH {list_str} AS tx_data
+// UNWIND tx_data AS tx
+
+// // NOTE: users should have already been merged in a previous call
+// MERGE (from:Account {{address: tx.sender}})
+// MERGE (to:Account {{address: tx.recipient}})
+// MERGE (from)-[rel:Tx {{tx_hash: tx.tx_hash}}]->(to)
+
+// ON CREATE SET rel.cypher_created_at = timestamp(), rel.cypher_modified_at = null
+// ON MATCH SET rel.cypher_modified_at = timestamp()
+// SET
+//     rel.block_datetime = tx.block_datetime,
+//     rel.block_timestamp = tx.block_timestamp,
+//     rel.relation = tx.relation,
+//     rel.function = tx.function
+
+// // Conditionally add `tx.args` if it exists
+// FOREACH (_ IN CASE WHEN tx.args IS NOT NULL THEN [1] ELSE [] END |
+//     SET rel += tx.args
+// )
+
+// // conditionally add amount
+// FOREACH (_ IN CASE WHEN tx.amount > 0 THEN [1] ELSE [] END |
+//     SET rel.amount = tx.amount
+//     // // add the cumulative tx edge
+//     // MERGE (from)-[relTotal:TotalTx]->(to)
+//     // SET relTotal.amount += tx.amount
+// )
+
+// WITH rel
+
+// RETURN
+//   COUNT(CASE WHEN rel.cypher_created_at = timestamp() THEN 1 END) AS created_tx,
+//   COUNT(CASE WHEN rel.cypher_modified_at = timestamp() AND rel.created_at < timestamp() THEN 1 END) AS modified_tx
+// "#
+//     )
+// }
+
 // TODO move this to a .CQL file so we can lint and debug
 pub fn write_batch_tx_string(list_str: &str) -> String {
-    format!(
-        r#"
-WITH {list_str} AS tx_data
-UNWIND tx_data AS tx
-
-// NOTE: users should have already been merged in a previous call
-MERGE (from:Account {{address: tx.sender}})
-MERGE (to:Account {{address: tx.recipient}})
-MERGE (from)-[rel:Tx {{tx_hash: tx.tx_hash}}]->(to)
-
-ON CREATE SET rel.cypher_created_at = timestamp(), rel.cypher_modified_at = null
-ON MATCH SET rel.cypher_modified_at = timestamp()
-SET
-    rel.block_datetime = tx.block_datetime,
-    rel.block_timestamp = tx.block_timestamp,
-    rel.relation = tx.relation,
-    rel.function = tx.function
-
-// Conditionally add `tx.args` if it exists
-FOREACH (_ IN CASE WHEN tx.args IS NOT NULL THEN [1] ELSE [] END |
-    SET rel += tx.args
-)
-
-// conditionally add amount
-FOREACH (_ IN CASE WHEN tx.amount > 0 THEN [1] ELSE [] END |
-    SET rel.amount = tx.amount
-    // // add the cumulative tx edge
-    // MERGE (from)-[relTotal:TotalTx]->(to)
-    // SET relTotal.amount += tx.amount
-)
-
-WITH rel
-
-RETURN
-  COUNT(CASE WHEN rel.cypher_created_at = timestamp() THEN 1 END) AS created_tx,
-  COUNT(CASE WHEN rel.cypher_modified_at = timestamp() AND rel.created_at < timestamp() THEN 1 END) AS modified_tx
-"#
-    )
-}
-
-// TODO move this to a .CQL file so we can lint and debug
-pub fn alt_write_batch_tx_string(list_str: &str) -> String {
     format!(
         r#"
 WITH {list_str} AS tx_data
@@ -55,45 +55,44 @@ MERGE (from:Account {{address: tx.sender}})
 MERGE (to:Account {{address: tx.recipient}})
 
 // Dynamically set the relationship label using a subquery
-    WITH from, to, tx
-    CALL {{
-        WITH tx
-        RETURN CASE
-            WHEN tx.relation = "Tx" THEN "Tx"
-            WHEN tx.relation = "Onboarding" THEN "Vouch"
-            WHEN tx.relation = "Vouch" THEN "Vouch"
-            ELSE "Unknown" // Default for unexpected or missing values
-        END AS dynamicLabel
-    }}
-    WITH from, to, tx, dynamicLabel
-    // Use dynamicLabel to create the relationship
-    MERGE (from)-[rel:`${{dynamicLabel}}` {{tx_hash: tx.tx_hash}}]->(to)
-    ON CREATE SET
-        rel.cypher_created_at = timestamp(),
-        rel.cypher_modified_at = null
-    ON MATCH SET
-        rel.cypher_modified_at = timestamp()
-    SET
-        rel.block_datetime = tx.block_datetime,
-        rel.block_timestamp = tx.block_timestamp,
-        rel.function = tx.function
-    // Conditionally add `tx.args` if it exists
-    FOREACH (_ IN CASE WHEN tx.args IS NOT NULL THEN [1] ELSE [] END |
-        SET rel += tx.args
-    )
-    RETURN rel
+WITH from, to, tx
+CALL {{
+    WITH tx
+    RETURN CASE
+        WHEN tx.relation = "Tx" THEN "Tx"
+        WHEN tx.relation = "Onboarding" THEN "Vouch"
+        WHEN tx.relation = "Vouch" THEN "Vouch"
+        ELSE "Unknown" // Default for unexpected or missing values
+    END AS dynamicLabel
+}}
+WITH from, to, tx, dynamicLabel
+// Use dynamicLabel to create the relationship
+MERGE (from)-[rel:`${{dynamicLabel}}` {{tx_hash: tx.tx_hash}}]->(to)
+ON CREATE SET
+    rel.cypher_created_at = timestamp(),
+    rel.cypher_modified_at = null
+ON MATCH SET
+    rel.cypher_modified_at = timestamp()
+SET
+    rel.block_datetime = tx.block_datetime,
+    rel.block_timestamp = tx.block_timestamp,
+    rel.function = tx.function
 
-// Handle cumulative TotalTx relationships if `tx.amount > 0`
-// FOREACH (_ IN CASE WHEN tx.amount > 0 THEN [1] ELSE [] END |
-//     MERGE (from)-[relTotal:TotalTx]->(to)
-//     SET relTotal.amount += tx.amount
-// )
+// Conditionally add `tx.args` if it exists
+FOREACH (_ IN CASE WHEN tx.args IS NOT NULL THEN [1] ELSE [] END |
+    SET rel += tx.args
+)
+
+// Increment the cumulative Lifetime edge if `tx.amount > 0`
+FOREACH (_ IN CASE WHEN tx.amount > 0 THEN [1] ELSE [] END |
+    MERGE (from)-[rl:Lifetime]->(to)
+    SET rl.coins_tx = COALESCE(rl.amount, 0) + tx.amount
+)
 
 // Final return with counts
 RETURN
   COUNT(CASE WHEN rel.cypher_created_at = timestamp() THEN 1 END) AS created_tx,
   COUNT(CASE WHEN rel.cypher_modified_at = timestamp() AND rel.created_at < timestamp() THEN 1 END) AS modified_tx
-
 "#
     )
 }
