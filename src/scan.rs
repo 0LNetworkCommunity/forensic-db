@@ -37,8 +37,6 @@ impl ManifestInfo {
             BundleContent::Unknown => return FrameworkVersion::Unknown,
             BundleContent::StateSnapshot => {
                 let man_path = self.archive_dir.join(self.contents.filename());
-                dbg!(&man_path);
-
                 // first check if the v7 manifest will parse
                 if let Ok(_bak) = load_snapshot_manifest(&man_path) {
                     self.version = FrameworkVersion::V7;
@@ -101,10 +99,10 @@ pub fn scan_dir_archive(
     content_opt: Option<BundleContent>,
 ) -> Result<ArchiveMap> {
     let path = parent_dir.canonicalize()?;
+    // filenames may be in .gz format
     let filename = content_opt.unwrap_or(BundleContent::Unknown).filename();
-    dbg!(&filename);
     let pattern = format!(
-        "{}/**/{}",
+        "{}/**/{}*", // also try .gz
         path.to_str().context("cannot parse starting dir")?,
         filename,
     );

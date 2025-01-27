@@ -6,6 +6,7 @@ use crate::{
     load_tx_cypher,
     queue::{self, clear_queue, push_queue_from_archive_map},
     scan::{ArchiveMap, ManifestInfo},
+    unzip_temp,
 };
 
 use anyhow::{bail, Context, Result};
@@ -69,6 +70,9 @@ pub async fn try_load_one_archive(
     pool: &Graph,
     batch_size: usize,
 ) -> Result<BatchTxReturn> {
+    info!("checking if we need to decompress");
+    let (archive_path, temp) = unzip_temp::maybe_handle_gz(&man.archive_dir)?;
+
     let mut all_results = BatchTxReturn::new();
     match man.contents {
         crate::scan::BundleContent::Unknown => todo!(),
@@ -78,23 +82,24 @@ pub async fn try_load_one_archive(
                     error!("no framework version detected");
                     bail!("could not load archive from manifest");
                 }
-                crate::scan::FrameworkVersion::V5 => extract_v5_snapshot(&man.archive_dir).await?,
+                crate::scan::FrameworkVersion::V5 => extract_v5_snapshot(&archive_path).await?,
                 crate::scan::FrameworkVersion::V6 => {
-                    extract_current_snapshot(&man.archive_dir).await?
+                    extract_current_snapshot(&archive_path).await?
                 }
                 crate::scan::FrameworkVersion::V7 => {
-                    extract_current_snapshot(&man.archive_dir).await?
+                    extract_current_snapshot(&archive_path).await?
                 }
             };
             snapshot_batch(&snaps, pool, batch_size, &man.archive_id).await?;
         }
         crate::scan::BundleContent::Transaction => {
-            let (txs, _) = extract_current_transactions(&man.archive_dir).await?;
+            let (txs, _) = extract_current_transactions(&archive_path).await?;
             let batch_res =
                 load_tx_cypher::tx_batch(&txs, pool, batch_size, &man.archive_id).await?;
             all_results.increment(&batch_res);
         }
         crate::scan::BundleContent::EpochEnding => todo!(),
     }
+    drop(temp);
     Ok(all_results)
 }

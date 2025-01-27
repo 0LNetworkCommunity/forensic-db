@@ -61,6 +61,7 @@ impl WarehouseAccState {
             self.address.to_hex_literal(),
             self.balance,
             self.time.version,
+            self.time.epoch,
             self.sequence_num,
             self.slow_wallet_locked,
             self.slow_wallet_transferred,
