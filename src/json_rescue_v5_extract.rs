@@ -166,6 +166,12 @@ pub fn decode_transaction_args(wtx: &mut WarehouseTxMaster, tx_bytes: &[u8]) -> 
                 wtx.entry_function = Some(EntryFunctionArgs::V520(sf.to_owned()));
 
                 match sf {
+                    ScriptFunctionCallV520::BalanceTransfer { destination, .. } => {
+                        wtx.relation_label =
+                            RelationLabel::Transfer(cast_legacy_account(destination)?);
+
+                        wtx.entry_function = Some(EntryFunctionArgs::V520(sf.to_owned()));
+                    }
                     ScriptFunctionCallV520::CreateAccUser { .. } => {
                         wtx.relation_label = RelationLabel::Onboarding(wtx.sender);
                     }
