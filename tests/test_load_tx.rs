@@ -52,7 +52,7 @@ async fn test_tx_batch() -> anyhow::Result<()> {
     let row = result.next().await?.unwrap();
     let total_tx_count: i64 = row.get("total_tx_count").unwrap();
 
-    assert!(total_tx_count == 45_i64);
+    assert!(total_tx_count == txs.len() as i64);
 
     // check there are transaction records with function args.
     let cypher_query = query(
