@@ -93,18 +93,16 @@ MERGE (addr:Account {{address: tx.address}})
 MERGE (snap:Snapshot {{
     address: tx.address,
     balance: tx.balance,
+    epoch: tx.epoch,
     framework_version: tx.framework_version,
     version: tx.version,
     sequence_num: tx.sequence_num,
-    slow_locked: tx.slow_locked,
+    slow_unlocked: tx.slow_unlocked,
     slow_transfer: tx.slow_transfer,
-    donor_voice: tx.donor_voice
+    donor_voice: tx.donor_voice,
+    miner_height: coalesce(tx.miner_height, 0)
 }})
 MERGE (addr)-[rel:State {{version: tx.version}}]->(snap)
-
-WITH snap, tx
-WHERE tx.miner_height > 0
-SET snap.miner_height = tx.miner_height
 
 RETURN COUNT(snap) AS merged_snapshots
 
