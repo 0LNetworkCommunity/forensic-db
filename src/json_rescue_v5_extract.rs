@@ -1,4 +1,5 @@
 use crate::{
+    schema_transaction::LEGACY_REBASE_MULTIPLIER,
     schema_transaction::{EntryFunctionArgs, RelationLabel, WarehouseEvent, WarehouseTxMaster},
     unzip_temp::decompress_tar_archive,
 };
@@ -120,7 +121,12 @@ pub fn decode_entry_function_v5(wtx: &mut WarehouseTxMaster, tx_bytes: &[u8]) ->
                     } => {
                         wtx.relation_label = RelationLabel::Transfer(
                             cast_legacy_account(destination)?,
-                            *unscaled_value,
+                            // IMPORTANT: the V5 values will be
+                            // rebased for harmonized analytics in the
+                            // `coins` property
+                            // The original value can still be found in the
+                            // tx.args which include the entry functions
+                            *unscaled_value * LEGACY_REBASE_MULTIPLIER,
                         );
 
                         wtx.entry_function = Some(EntryFunctionArgs::V5(sf.to_owned()));
