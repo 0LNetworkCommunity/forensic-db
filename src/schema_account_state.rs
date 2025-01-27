@@ -17,7 +17,7 @@ pub struct WarehouseAccState {
     pub time: WarehouseTime,
     pub sequence_num: u64,
     pub balance: u64,
-    pub slow_wallet_locked: u64,
+    pub slow_wallet_unlocked: u64,
     pub slow_wallet_transferred: u64,
     pub donor_voice_acc: bool,
     pub miner_height: Option<u64>,
@@ -29,7 +29,7 @@ impl Default for WarehouseAccState {
             address: AccountAddress::ZERO,
             sequence_num: 0,
             balance: 0,
-            slow_wallet_locked: 0,
+            slow_wallet_unlocked: 0,
             slow_wallet_transferred: 0,
             donor_voice_acc: false,
             miner_height: None,
@@ -57,13 +57,13 @@ impl WarehouseAccState {
     /// Note original data was in an RFC rfc3339 with Z for UTC, Cypher seems to prefer with offsets +00000
     pub fn to_cypher_object_template(&self) -> String {
         format!(
-            r#"{{address: "{}", balance: {}, version: {}, sequence_num: {}, slow_locked: {}, slow_transfer: {}, framework_version: "{}", donor_voice: {}, miner_height: {} }}"#,
+            r#"{{address: "{}", balance: {}, version: {}, epoch: {},sequence_num: {}, slow_unlocked: {}, slow_transfer: {}, framework_version: "{}", donor_voice: {}, miner_height: {}}}"#,
             self.address.to_hex_literal(),
             self.balance,
             self.time.version,
             self.time.epoch,
             self.sequence_num,
-            self.slow_wallet_locked,
+            self.slow_wallet_unlocked,
             self.slow_wallet_transferred,
             self.time.framework_version,
             self.donor_voice_acc,

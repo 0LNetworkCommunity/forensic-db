@@ -3,7 +3,7 @@ mod support;
 use anyhow::Result;
 use libra_forensic_db::{
     scan::{scan_dir_archive, BundleContent, FrameworkVersion},
-    unzip_temp::make_temp_unzipped,
+    unzip_temp::test_helper_temp_unzipped,
 };
 use support::fixtures;
 
