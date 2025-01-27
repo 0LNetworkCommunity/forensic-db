@@ -26,7 +26,7 @@ pub enum RelationLabel {
     // - legacy multiplier in v6 rebase (for all pre-v6 data)
     // - decimal precision scaling
     Transfer(AccountAddress, u64),
-    Onboarding(AccountAddress),
+    Onboarding(AccountAddress, u64),
     Vouch(AccountAddress),
     Configuration,
     Miner,
@@ -38,9 +38,9 @@ impl RelationLabel {
     pub fn to_cypher_label(&self) -> String {
         match self {
             RelationLabel::Tx => "MiscTx".to_owned(),
-            RelationLabel::Transfer(_, _) => "Transfer".to_owned(),
-            RelationLabel::Onboarding(_) => "Onboarding".to_owned(),
-            RelationLabel::Vouch(_) => "Vouch".to_owned(),
+            RelationLabel::Transfer(..) => "Transfer".to_owned(),
+            RelationLabel::Onboarding(..) => "Onboarding".to_owned(),
+            RelationLabel::Vouch(..) => "Vouch".to_owned(),
             RelationLabel::Configuration => "Configuration".to_owned(),
             RelationLabel::Miner => "Miner".to_owned(),
         }
@@ -50,7 +50,7 @@ impl RelationLabel {
         match &self {
             RelationLabel::Tx => None,
             RelationLabel::Transfer(account_address, _) => Some(*account_address),
-            RelationLabel::Onboarding(account_address) => Some(*account_address),
+            RelationLabel::Onboarding(account_address, _) => Some(*account_address),
             RelationLabel::Vouch(account_address) => Some(*account_address),
             RelationLabel::Configuration => None,
             RelationLabel::Miner => None,
@@ -60,11 +60,20 @@ impl RelationLabel {
     pub fn get_coins_human_readable(&self) -> Option<f64> {
         match &self {
             RelationLabel::Transfer(_, amount) => {
-                let human = (*amount as f64) / COIN_DECIMAL_PRECISION;
-                Some(human)
+                if *amount > 0 {
+                    let human = (*amount as f64) / COIN_DECIMAL_PRECISION;
+                    return Some(human);
+                }
             }
-            _ => None,
+            RelationLabel::Onboarding(_, amount) => {
+                if *amount > 0 {
+                    let human = (*amount as f64) / COIN_DECIMAL_PRECISION;
+                    return Some(human);
+                }
+            }
+            _ => {}
         }
+        None
     }
 }
 

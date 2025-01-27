@@ -31,13 +31,13 @@ fn maybe_get_v7_relation(
     let relation = match ef {
         Some(V7EntryFunctionCall::OlAccountTransfer { to, amount }) => {
             if is_onboarding_event(events) {
-                RelationLabel::Onboarding(to)
+                RelationLabel::Onboarding(to, amount)
             } else {
                 RelationLabel::Transfer(to, amount)
             }
         }
         Some(V7EntryFunctionCall::OlAccountCreateAccount { auth_key }) => {
-            RelationLabel::Onboarding(auth_key)
+            RelationLabel::Onboarding(auth_key, 0)
         }
         Some(V7EntryFunctionCall::VouchVouchFor { friend_account }) => {
             RelationLabel::Vouch(friend_account)
@@ -46,7 +46,12 @@ fn maybe_get_v7_relation(
             RelationLabel::Vouch(friend_account)
         }
         Some(V7EntryFunctionCall::CoinTransfer { to, amount, .. }) => {
-            RelationLabel::Transfer(to, amount)
+            // RelationLabel::Transfer(to, amount)
+            if is_onboarding_event(events) {
+                RelationLabel::Onboarding(to, amount)
+            } else {
+                RelationLabel::Transfer(to, amount)
+            }
         }
 
         // TODO: get other entry functions with known counter parties
@@ -67,13 +72,13 @@ fn maybe_get_v6_relation(
     let relation = match ef {
         Some(V6EntryFunctionCall::OlAccountTransfer { to, amount }) => {
             if is_onboarding_event(events) {
-                RelationLabel::Onboarding(to)
+                RelationLabel::Onboarding(to, amount)
             } else {
                 RelationLabel::Transfer(to, amount)
             }
         }
         Some(V6EntryFunctionCall::OlAccountCreateAccount { auth_key }) => {
-            RelationLabel::Onboarding(auth_key)
+            RelationLabel::Onboarding(auth_key, 0)
         }
         Some(V6EntryFunctionCall::VouchVouchFor { wanna_be_my_friend }) => {
             RelationLabel::Vouch(wanna_be_my_friend)
@@ -82,7 +87,12 @@ fn maybe_get_v6_relation(
             RelationLabel::Vouch(wanna_be_my_friend)
         }
         Some(V6EntryFunctionCall::CoinTransfer { to, amount, .. }) => {
-            RelationLabel::Transfer(to, amount)
+            // RelationLabel::Transfer(to, amount)
+            if is_onboarding_event(events) {
+                RelationLabel::Onboarding(to, amount)
+            } else {
+                RelationLabel::Transfer(to, amount)
+            }
         }
 
         // TODO: get other entry functions with known counter parties

@@ -71,7 +71,7 @@ pub fn decode_transaction_dataview_v5(
                 match &wtxs.relation_label {
                     RelationLabel::Tx => {}
                     RelationLabel::Transfer(_, _) => tx_vec.push(wtxs),
-                    RelationLabel::Onboarding(_) => tx_vec.push(wtxs),
+                    RelationLabel::Onboarding(_, _) => tx_vec.push(wtxs),
                     RelationLabel::Vouch(_) => tx_vec.push(wtxs),
                     RelationLabel::Configuration => {}
                     RelationLabel::Miner => {}
@@ -137,16 +137,22 @@ pub fn decode_entry_function_v5(wtx: &mut WarehouseTxMaster, tx_bytes: &[u8]) ->
                     }
                     ScriptFunctionCallGenesis::CreateAccUser { .. } => {
                         // onboards self
-                        wtx.relation_label = RelationLabel::Onboarding(wtx.sender);
+                        wtx.relation_label = RelationLabel::Onboarding(wtx.sender, 0);
                     }
                     ScriptFunctionCallGenesis::CreateAccVal { .. } => {
                         // onboards self
-                        wtx.relation_label = RelationLabel::Onboarding(wtx.sender);
+                        wtx.relation_label = RelationLabel::Onboarding(wtx.sender, 0);
                     }
 
-                    ScriptFunctionCallGenesis::CreateUserByCoinTx { account, .. } => {
-                        wtx.relation_label =
-                            RelationLabel::Onboarding(cast_legacy_account(account)?);
+                    ScriptFunctionCallGenesis::CreateUserByCoinTx {
+                        account,
+                        unscaled_value,
+                        ..
+                    } => {
+                        wtx.relation_label = RelationLabel::Onboarding(
+                            cast_legacy_account(account)?,
+                            *unscaled_value * LEGACY_REBASE_MULTIPLIER,
+                        );
                     }
                     ScriptFunctionCallGenesis::CreateValidatorAccount {
                         sliding_nonce: _,
@@ -154,7 +160,7 @@ pub fn decode_entry_function_v5(wtx: &mut WarehouseTxMaster, tx_bytes: &[u8]) ->
                         ..
                     } => {
                         wtx.relation_label =
-                            RelationLabel::Onboarding(cast_legacy_account(new_account_address)?);
+                            RelationLabel::Onboarding(cast_legacy_account(new_account_address)?, 0);
                     }
                     ScriptFunctionCallGenesis::CreateValidatorOperatorAccount {
                         sliding_nonce: _,
@@ -162,7 +168,7 @@ pub fn decode_entry_function_v5(wtx: &mut WarehouseTxMaster, tx_bytes: &[u8]) ->
                         ..
                     } => {
                         wtx.relation_label =
-                            RelationLabel::Onboarding(cast_legacy_account(new_account_address)?);
+                            RelationLabel::Onboarding(cast_legacy_account(new_account_address)?, 0);
                     }
 
                     ScriptFunctionCallGenesis::MinerstateCommit { .. } => {
@@ -184,10 +190,10 @@ pub fn decode_entry_function_v5(wtx: &mut WarehouseTxMaster, tx_bytes: &[u8]) ->
 
                 match sf {
                     ScriptFunctionCallV520::CreateAccUser { .. } => {
-                        wtx.relation_label = RelationLabel::Onboarding(wtx.sender);
+                        wtx.relation_label = RelationLabel::Onboarding(wtx.sender, 0);
                     }
                     ScriptFunctionCallV520::CreateAccVal { .. } => {
-                        wtx.relation_label = RelationLabel::Onboarding(wtx.sender);
+                        wtx.relation_label = RelationLabel::Onboarding(wtx.sender, 0);
                     }
 
                     ScriptFunctionCallV520::CreateValidatorAccount {
@@ -196,7 +202,7 @@ pub fn decode_entry_function_v5(wtx: &mut WarehouseTxMaster, tx_bytes: &[u8]) ->
                         ..
                     } => {
                         wtx.relation_label =
-                            RelationLabel::Onboarding(cast_legacy_account(new_account_address)?);
+                            RelationLabel::Onboarding(cast_legacy_account(new_account_address)?, 0);
                     }
                     ScriptFunctionCallV520::CreateValidatorOperatorAccount {
                         sliding_nonce: _,
@@ -204,7 +210,7 @@ pub fn decode_entry_function_v5(wtx: &mut WarehouseTxMaster, tx_bytes: &[u8]) ->
                         ..
                     } => {
                         wtx.relation_label =
-                            RelationLabel::Onboarding(cast_legacy_account(new_account_address)?);
+                            RelationLabel::Onboarding(cast_legacy_account(new_account_address)?, 0);
                     }
                     ScriptFunctionCallV520::MinerstateCommit { .. } => {
                         wtx.relation_label = RelationLabel::Miner;
