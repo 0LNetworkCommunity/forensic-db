@@ -76,9 +76,9 @@ async fn test_snapshot_batch() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_v5_snapshot_batch() -> anyhow::Result<()> {
     libra_forensic_db::log_setup();
-    let manifest_file = v5_state_manifest_fixtures_path().join("state.manifest");
-    assert!(manifest_file.exists());
-    let vec_snap = extract_v5_snapshot(&manifest_file).await?;
+    let archive_path = v5_state_manifest_fixtures_path();
+    assert!(archive_path.exists());
+    let vec_snap = extract_v5_snapshot(&archive_path).await?;
 
     let c = start_neo4j_container();
     let port = c.get_host_port_ipv4(7687);
@@ -112,9 +112,9 @@ async fn test_v5_snapshot_batch() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_snapshot_entrypoint() -> anyhow::Result<()> {
     libra_forensic_db::log_setup();
-    let manifest_file = v5_state_manifest_fixtures_path().join("state.manifest");
-    assert!(manifest_file.exists());
-    let vec_snap = extract_v5_snapshot(&manifest_file).await?;
+    let archive_dir = v5_state_manifest_fixtures_path();
+    assert!(archive_dir.exists());
+    let vec_snap = extract_v5_snapshot(&archive_dir).await?;
     assert!(vec_snap.len() == 17338);
 
     let c = start_neo4j_container();
