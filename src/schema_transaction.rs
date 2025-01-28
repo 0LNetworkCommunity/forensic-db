@@ -1,4 +1,4 @@
-use crate::cypher_templates::to_cypher_object;
+use crate::{cypher_templates::to_cypher_object, scan::FrameworkVersion};
 
 use chrono::{DateTime, Utc};
 use diem_crypto::HashValue;
@@ -9,31 +9,36 @@ use libra_backwards_compatibility::sdk::{
     v6_libra_framework_sdk_builder::EntryFunctionCall as V6EntryFunctionCall,
     v7_libra_framework_sdk_builder::EntryFunctionCall as V7EntryFunctionCall,
 };
-// TODO:
-// use libra_cached_packages::libra_stdlib::EntryFunctionCall as CurrentVersionEntryFunctionCall;
-
 use libra_types::{exports::AccountAddress, move_resource::coin_register_event::CoinRegisterEvent};
 use serde::{Deserialize, Serialize};
+
+// TODO check decimal precision
+/// Conversion of coins from V5 to V6
+pub const LEGACY_REBASE_MULTIPLIER: u64 = 35;
+/// Decimal precision
+// TODO: duplication, this is probably defined in libra-framework somewhere
+pub const COIN_DECIMAL_PRECISION: f64 = 1000000.0;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum RelationLabel {
     Unknown, // undefined tx
-    Transfer(AccountAddress),
-    Onboarding(AccountAddress),
+    // NOTE: amount u64 includes:
+    // - legacy multiplier in v6 rebase (for all pre-v6 data)
+    // - decimal precision scaling
+    Transfer(AccountAddress, u64),
+    Onboarding(AccountAddress, u64),
     Vouch(AccountAddress),
     Configuration,
     Miner,
-    // Script,
-    // MiscEntryFunction,
 }
 
 impl RelationLabel {
     pub fn to_cypher_label(&self) -> String {
         match self {
-            RelationLabel::Unknown => "Tx".to_owned(),
-            RelationLabel::Transfer(_) => "Tx".to_owned(),
-            RelationLabel::Onboarding(_) => "Onboarding".to_owned(),
-            RelationLabel::Vouch(_) => "Vouch".to_owned(),
+            RelationLabel::Unknown => "Unknown".to_owned(),
+            RelationLabel::Transfer(..) => "Transfer".to_owned(),
+            RelationLabel::Onboarding(..) => "Onboarding".to_owned(),
+            RelationLabel::Vouch(..) => "Vouch".to_owned(),
             RelationLabel::Configuration => "Configuration".to_owned(),
             RelationLabel::Miner => "Miner".to_owned(),
         }
@@ -42,12 +47,31 @@ impl RelationLabel {
     pub fn get_recipient(&self) -> Option<AccountAddress> {
         match &self {
             RelationLabel::Unknown => None,
-            RelationLabel::Transfer(account_address) => Some(*account_address),
-            RelationLabel::Onboarding(account_address) => Some(*account_address),
+            RelationLabel::Transfer(account_address, _) => Some(*account_address),
+            RelationLabel::Onboarding(account_address, _) => Some(*account_address),
             RelationLabel::Vouch(account_address) => Some(*account_address),
             RelationLabel::Configuration => None,
             RelationLabel::Miner => None,
         }
+    }
+
+    pub fn get_coins_human_readable(&self) -> Option<f64> {
+        match &self {
+            RelationLabel::Transfer(_, amount) => {
+                if *amount > 0 {
+                    let human = (*amount as f64) / COIN_DECIMAL_PRECISION;
+                    return Some(human);
+                }
+            }
+            RelationLabel::Onboarding(_, amount) => {
+                if *amount > 0 {
+                    let human = (*amount as f64) / COIN_DECIMAL_PRECISION;
+                    return Some(human);
+                }
+            }
+            _ => {}
+        }
+        None
     }
 }
 
@@ -83,7 +107,6 @@ pub struct WarehouseTxMaster {
     pub tx_hash: HashValue,
     pub relation_label: RelationLabel,
     pub sender: AccountAddress,
-    // pub recipient: Option<AccountAddress>,
     pub function: String,
     pub epoch: u64,
     pub round: u64,
@@ -92,6 +115,8 @@ pub struct WarehouseTxMaster {
     pub expiration_timestamp: u64,
     pub entry_function: Option<EntryFunctionArgs>,
     pub events: Vec<WarehouseEvent>,
+    pub framework_version: FrameworkVersion,
+    // TODO framework version
 }
 
 impl Default for WarehouseTxMaster {
@@ -108,6 +133,7 @@ impl Default for WarehouseTxMaster {
             expiration_timestamp: 0,
             entry_function: None,
             events: vec![],
+            framework_version: FrameworkVersion::Unknown,
         }
     }
 }
@@ -126,9 +152,12 @@ impl WarehouseTxMaster {
                 tx_args = st;
             }
         };
-
+        let coins_literal = match &self.relation_label.get_coins_human_readable() {
+            Some(c) => format!(" coins: {:.2},", c),
+            None => "".to_string(),
+        };
         format!(
-            r#"{{ args: {maybe_args_here}, tx_hash: "{}", block_datetime: datetime("{}"), block_timestamp: {}, relation: "{}", function: "{}", sender: "{}", recipient: "{}"}}"#,
+            r#"{{ args: {maybe_args_here},{maybe_coins_here}tx_hash: "{}", block_datetime: datetime("{}"), block_timestamp: {}, relation: "{}", function: "{}", sender: "{}", recipient: "{}", framework_version: "{}"}}"#,
             self.tx_hash.to_hex_literal(),
             self.block_datetime.to_rfc3339(),
             self.block_timestamp,
@@ -140,7 +169,9 @@ impl WarehouseTxMaster {
                 .get_recipient()
                 .unwrap_or(self.sender)
                 .to_hex_literal(),
+            self.framework_version,
             maybe_args_here = tx_args,
+            maybe_coins_here = coins_literal
         )
     }
 

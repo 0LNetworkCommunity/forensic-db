@@ -99,5 +99,5 @@ fn test_format() {
         }),
     };
     let s = increment_balance_template(&record);
-    dbg!(&s);
+    // dbg!(&s);
 }

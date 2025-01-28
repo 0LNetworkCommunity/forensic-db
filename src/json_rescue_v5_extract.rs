@@ -1,7 +1,12 @@
 use crate::{
-    schema_transaction::{EntryFunctionArgs, RelationLabel, WarehouseEvent, WarehouseTxMaster},
+    scan::FrameworkVersion,
+    schema_transaction::{
+        EntryFunctionArgs, RelationLabel, WarehouseEvent, WarehouseTxMaster,
+        LEGACY_REBASE_MULTIPLIER,
+    },
     unzip_temp::decompress_tar_archive,
 };
+use chrono::DateTime;
 use diem_crypto::HashValue;
 use libra_backwards_compatibility::{
     sdk::{
@@ -11,14 +16,14 @@ use libra_backwards_compatibility::{
     version_five::{
         legacy_address_v5::LegacyAddressV5,
         transaction_type_v5::{TransactionPayload, TransactionV5},
-        transaction_view_v5::{EventDataView, ScriptView, TransactionDataView, TransactionViewV5},
+        transaction_view_v5::{ScriptView, TransactionDataView, TransactionViewV5},
     },
 };
 
 use anyhow::{anyhow, Context, Result};
 use diem_temppath::TempPath;
 use diem_types::account_address::AccountAddress;
-use log::{error, trace, warn};
+use log::trace;
 use std::path::{Path, PathBuf};
 
 /// The canonical transaction archives for V5 were kept in a different format as in v6 and v7.
@@ -32,67 +37,59 @@ pub fn extract_v5_json_rescue(
     let txs: Vec<TransactionViewV5> = serde_json::from_str(&json)
         .map_err(|e| anyhow!("could not parse JSON to TransactionViewV5, {:?}", e))?;
 
+    decode_transaction_dataview_v5(&txs)
+}
+
+pub fn decode_transaction_dataview_v5(
+    txs: &[TransactionViewV5],
+) -> Result<(Vec<WarehouseTxMaster>, Vec<WarehouseEvent>, Vec<String>)> {
     let mut tx_vec = vec![];
     let event_vec = vec![];
     let mut unique_functions = vec![];
 
-    let mut timestamp = 0;
-    let mut epoch_counter = 0;
     for t in txs {
-        let mut wtxs = WarehouseTxMaster::default();
-        match &t.transaction {
-            TransactionDataView::UserTransaction { sender, script, .. } => {
-                wtxs.sender = cast_legacy_account(sender)?;
+        let mut wtxs = WarehouseTxMaster {
+            framework_version: FrameworkVersion::V5,
+            ..Default::default()
+        };
 
-                // must cast from V5 Hashvalue buffer layout
-                wtxs.tx_hash = HashValue::from_slice(t.hash.to_vec())?;
+        let timestamp = t.timestamp_usecs.unwrap_or(0);
+        if let TransactionDataView::UserTransaction { sender, script, .. } = &t.transaction {
+            wtxs.sender = cast_legacy_account(sender)?;
 
-                wtxs.function = make_function_name(script);
-                trace!("function: {}", &wtxs.function);
-                if !unique_functions.contains(&wtxs.function) {
-                    unique_functions.push(wtxs.function.clone());
-                }
+            // must cast from V5 HashValue buffer layout
+            wtxs.tx_hash = HashValue::from_slice(t.hash.to_vec())?;
 
-                decode_transaction_args(&mut wtxs, &t.bytes)?;
-                dbg!(&wtxs);
-                // TODO:
-                // wtxs.events
-                // TODO:
-                wtxs.block_timestamp = timestamp;
-
-                // TODO: create arg to exclude tx without counter party
-                match &wtxs.relation_label {
-                    RelationLabel::Unknown => {}
-                    RelationLabel::Transfer(_) => tx_vec.push(wtxs),
-                    RelationLabel::Onboarding(_) => tx_vec.push(wtxs),
-                    RelationLabel::Vouch(_) => tx_vec.push(wtxs),
-                    RelationLabel::Configuration => {}
-                    RelationLabel::Miner => {}
-                };
+            wtxs.function = make_function_name(script);
+            trace!("function: {}", &wtxs.function);
+            if !unique_functions.contains(&wtxs.function) {
+                unique_functions.push(wtxs.function.clone());
             }
-            TransactionDataView::BlockMetadata { timestamp_usecs } => {
-                if *timestamp_usecs < timestamp {
-                    error!("timestamps are not increasing");
-                } else {
-                    timestamp = *timestamp_usecs;
-                }
 
-                // TODO get epoch events
-                t.events.iter().for_each(|e| {
-                    if let EventDataView::NewEpoch { epoch } = &e.data {
-                        warn!("new epoch event: {:?}", epoch);
-                        epoch_counter = *epoch;
-                    }
-                });
-            }
-            _ => {}
+            decode_entry_function_v5(&mut wtxs, &t.bytes)?;
+
+            // TODO: EPOCH does not exist in v5 rescue json transaction record
+            // each .json is not guaranteed to have an epoch change event.
+            // tracking epoch change events and incrementing is error prone
+            // as the async loader does not guarantee ordered reading of files.
+            wtxs.block_timestamp = timestamp;
+            wtxs.block_datetime =
+                DateTime::from_timestamp_micros(timestamp as i64).expect("get timestamp");
+
+            match &wtxs.relation_label {
+                RelationLabel::Unknown => {}
+                RelationLabel::Transfer(..) => tx_vec.push(wtxs),
+                RelationLabel::Onboarding(..) => tx_vec.push(wtxs),
+                RelationLabel::Vouch(..) => tx_vec.push(wtxs),
+                RelationLabel::Configuration => {}
+                RelationLabel::Miner => {}
+            };
         }
     }
-    dbg!(&tx_vec);
     Ok((tx_vec, event_vec, unique_functions))
 }
 
-pub fn decode_transaction_args(wtx: &mut WarehouseTxMaster, tx_bytes: &[u8]) -> Result<()> {
+pub fn decode_entry_function_v5(wtx: &mut WarehouseTxMaster, tx_bytes: &[u8]) -> Result<()> {
     // test we can bcs decode to the transaction object
     let t: TransactionV5 = bcs::from_bytes(tx_bytes).map_err(|err| {
         anyhow!(
@@ -120,31 +117,42 @@ fn maybe_decode_v5_genesis_function(
     payload: &TransactionPayload,
 ) -> Result<()> {
     if let Some(sf) = &ScriptFunctionCallGenesis::decode(payload) {
-        dbg!(&sf);
         wtx.entry_function = Some(EntryFunctionArgs::V5(sf.to_owned()));
         // TODO: some script functions have very large payloads which clog the e.g. Miner. So those are only added for the catch-all txs which don't fall into categories we are interested in.
         match sf {
-            ScriptFunctionCallGenesis::BalanceTransfer { destination, .. } => {
-                wtx.relation_label = RelationLabel::Transfer(cast_legacy_account(destination)?);
+            ScriptFunctionCallGenesis::BalanceTransfer {
+                destination,
+                unscaled_value,
+            } => {
+                wtx.relation_label = RelationLabel::Transfer(
+                    cast_legacy_account(destination)?,
+                    *unscaled_value * LEGACY_REBASE_MULTIPLIER,
+                );
 
                 wtx.entry_function = Some(EntryFunctionArgs::V5(sf.to_owned()));
             }
-            ScriptFunctionCallGenesis::AutopayCreateInstruction { payee, .. } => {
-                wtx.relation_label = RelationLabel::Transfer(cast_legacy_account(payee)?);
+            ScriptFunctionCallGenesis::AutopayCreateInstruction { .. } => {
+                wtx.relation_label = RelationLabel::Configuration;
                 wtx.entry_function = Some(EntryFunctionArgs::V5(sf.to_owned()));
             }
             ScriptFunctionCallGenesis::CreateAccUser { .. } => {
                 // onboards self
-                wtx.relation_label = RelationLabel::Onboarding(wtx.sender);
+                wtx.relation_label = RelationLabel::Onboarding(wtx.sender, 0);
             }
             ScriptFunctionCallGenesis::CreateAccVal { .. } => {
                 // onboards self
-                wtx.relation_label = RelationLabel::Onboarding(wtx.sender);
+                wtx.relation_label = RelationLabel::Onboarding(wtx.sender, 0);
             }
 
-            ScriptFunctionCallGenesis::CreateUserByCoinTx { account, .. } => {
-                dbg!(&account);
-                wtx.relation_label = RelationLabel::Onboarding(cast_legacy_account(account)?);
+            ScriptFunctionCallGenesis::CreateUserByCoinTx {
+                account,
+                unscaled_value,
+                ..
+            } => {
+                wtx.relation_label = RelationLabel::Onboarding(
+                    cast_legacy_account(account)?,
+                    *unscaled_value * LEGACY_REBASE_MULTIPLIER,
+                );
             }
             ScriptFunctionCallGenesis::CreateValidatorAccount {
                 sliding_nonce: _,
@@ -152,7 +160,7 @@ fn maybe_decode_v5_genesis_function(
                 ..
             } => {
                 wtx.relation_label =
-                    RelationLabel::Onboarding(cast_legacy_account(new_account_address)?);
+                    RelationLabel::Onboarding(cast_legacy_account(new_account_address)?, 0);
             }
             ScriptFunctionCallGenesis::CreateValidatorOperatorAccount {
                 sliding_nonce: _,
@@ -160,7 +168,7 @@ fn maybe_decode_v5_genesis_function(
                 ..
             } => {
                 wtx.relation_label =
-                    RelationLabel::Onboarding(cast_legacy_account(new_account_address)?);
+                    RelationLabel::Onboarding(cast_legacy_account(new_account_address)?, 0);
             }
 
             ScriptFunctionCallGenesis::MinerstateCommit { .. } => {
@@ -188,16 +196,22 @@ fn maybe_decode_v520_function(
         match sf {
             // NOTE: This balanceTransfer likely de/encodes to the same
             // bytes as v5 genesis
-            ScriptFunctionCallV520::BalanceTransfer { destination, .. } => {
-                wtx.relation_label = RelationLabel::Transfer(cast_legacy_account(destination)?);
+            ScriptFunctionCallV520::BalanceTransfer {
+                destination,
+                unscaled_value,
+            } => {
+                wtx.relation_label = RelationLabel::Transfer(
+                    cast_legacy_account(destination)?,
+                    *unscaled_value * LEGACY_REBASE_MULTIPLIER,
+                );
 
                 wtx.entry_function = Some(EntryFunctionArgs::V520(sf.to_owned()));
             }
             ScriptFunctionCallV520::CreateAccUser { .. } => {
-                wtx.relation_label = RelationLabel::Onboarding(wtx.sender);
+                wtx.relation_label = RelationLabel::Onboarding(wtx.sender, 0);
             }
             ScriptFunctionCallV520::CreateAccVal { .. } => {
-                wtx.relation_label = RelationLabel::Onboarding(wtx.sender);
+                wtx.relation_label = RelationLabel::Onboarding(wtx.sender, 0);
             }
 
             ScriptFunctionCallV520::CreateValidatorAccount {
@@ -206,7 +220,7 @@ fn maybe_decode_v520_function(
                 ..
             } => {
                 wtx.relation_label =
-                    RelationLabel::Onboarding(cast_legacy_account(new_account_address)?);
+                    RelationLabel::Onboarding(cast_legacy_account(new_account_address)?, 0);
             }
             ScriptFunctionCallV520::CreateValidatorOperatorAccount {
                 sliding_nonce: _,
@@ -214,7 +228,7 @@ fn maybe_decode_v520_function(
                 ..
             } => {
                 wtx.relation_label =
-                    RelationLabel::Onboarding(cast_legacy_account(new_account_address)?);
+                    RelationLabel::Onboarding(cast_legacy_account(new_account_address)?, 0);
             }
             ScriptFunctionCallV520::MinerstateCommit { .. } => {
                 wtx.relation_label = RelationLabel::Miner;

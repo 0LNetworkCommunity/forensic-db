@@ -84,7 +84,7 @@ fn test_json_full_file() -> anyhow::Result<()> {
     let p = fixtures::v5_json_tx_path().join("10000-10999.json");
 
     let (tx, _, _) = extract_v5_json_rescue(&p)?;
-
+    dbg!(&tx);
     assert!(tx.len() == 4);
     let first = tx.first().unwrap();
 
