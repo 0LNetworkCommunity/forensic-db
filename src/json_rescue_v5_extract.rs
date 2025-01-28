@@ -61,10 +61,8 @@ pub fn decode_transaction_dataview_v5(
                 }
 
                 decode_entry_function_v5(&mut wtxs, &t.bytes)?;
-                dbg!(&wtxs);
-                // TODO:
-                // wtxs.events
 
+                // TODO: timestamp
                 wtxs.block_timestamp = timestamp;
 
                 // TODO: create arg to exclude tx without counter party
@@ -95,7 +93,6 @@ pub fn decode_transaction_dataview_v5(
             _ => {}
         }
     }
-    dbg!(&tx_vec);
     Ok((tx_vec, event_vec, unique_functions))
 }
 
@@ -127,7 +124,6 @@ fn maybe_decode_v5_genesis_function(
     payload: &TransactionPayload,
 ) -> Result<()> {
     if let Some(sf) = &ScriptFunctionCallGenesis::decode(payload) {
-        dbg!(&sf);
         wtx.entry_function = Some(EntryFunctionArgs::V5(sf.to_owned()));
         // TODO: some script functions have very large payloads which clog the e.g. Miner. So those are only added for the catch-all txs which don't fall into categories we are interested in.
         match sf {
@@ -160,7 +156,6 @@ fn maybe_decode_v5_genesis_function(
                 unscaled_value,
                 ..
             } => {
-                dbg!(&account);
                 wtx.relation_label = RelationLabel::Onboarding(
                     cast_legacy_account(account)?,
                     *unscaled_value * LEGACY_REBASE_MULTIPLIER,
