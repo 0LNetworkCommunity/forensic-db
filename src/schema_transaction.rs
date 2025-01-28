@@ -154,7 +154,9 @@ impl WarehouseTxMaster {
         };
         let mut coins_literal = "NULL".to_string();
         if let Some(c) = &self.relation_label.get_coins_human_readable() {
-            coins_literal = format!("{:.2}", c);
+            if c > &0.0 {
+                coins_literal = format!("{:.2}", c);
+            }
         };
         format!(
             r#"{{ args: {tx_args}, coins: {coins_literal}, tx_hash: "{}", block_datetime: datetime("{}"), block_timestamp: {}, relation: "{}", function: "{}", sender: "{}", recipient: "{}", framework_version: "{}"}}"#,
