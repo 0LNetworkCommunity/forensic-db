@@ -60,7 +60,7 @@ pub fn decode_transaction_dataview_v5(
                     unique_functions.push(wtxs.function.clone());
                 }
 
-                decode_transaction_args(&mut wtxs, &t.bytes)?;
+                decode_entry_function_v5(&mut wtxs, &t.bytes)?;
                 dbg!(&wtxs);
                 // TODO:
                 // wtxs.events
@@ -131,27 +131,40 @@ fn maybe_decode_v5_genesis_function(
         wtx.entry_function = Some(EntryFunctionArgs::V5(sf.to_owned()));
         // TODO: some script functions have very large payloads which clog the e.g. Miner. So those are only added for the catch-all txs which don't fall into categories we are interested in.
         match sf {
-            ScriptFunctionCallGenesis::BalanceTransfer { destination, .. } => {
-                wtx.relation_label = RelationLabel::Transfer(cast_legacy_account(destination)?);
+            ScriptFunctionCallGenesis::BalanceTransfer {
+                destination,
+                unscaled_value,
+            } => {
+                wtx.relation_label = RelationLabel::Transfer(
+                    cast_legacy_account(destination)?,
+                    *unscaled_value * LEGACY_REBASE_MULTIPLIER,
+                );
 
                 wtx.entry_function = Some(EntryFunctionArgs::V5(sf.to_owned()));
             }
-            ScriptFunctionCallGenesis::AutopayCreateInstruction { payee, .. } => {
-                wtx.relation_label = RelationLabel::Transfer(cast_legacy_account(payee)?);
+            ScriptFunctionCallGenesis::AutopayCreateInstruction { .. } => {
+                wtx.relation_label = RelationLabel::Configuration;
                 wtx.entry_function = Some(EntryFunctionArgs::V5(sf.to_owned()));
             }
             ScriptFunctionCallGenesis::CreateAccUser { .. } => {
                 // onboards self
-                wtx.relation_label = RelationLabel::Onboarding(wtx.sender);
+                wtx.relation_label = RelationLabel::Onboarding(wtx.sender, 0);
             }
             ScriptFunctionCallGenesis::CreateAccVal { .. } => {
                 // onboards self
-                wtx.relation_label = RelationLabel::Onboarding(wtx.sender);
+                wtx.relation_label = RelationLabel::Onboarding(wtx.sender, 0);
             }
 
-            ScriptFunctionCallGenesis::CreateUserByCoinTx { account, .. } => {
+            ScriptFunctionCallGenesis::CreateUserByCoinTx {
+                account,
+                unscaled_value,
+                ..
+            } => {
                 dbg!(&account);
-                wtx.relation_label = RelationLabel::Onboarding(cast_legacy_account(account)?);
+                wtx.relation_label = RelationLabel::Onboarding(
+                    cast_legacy_account(account)?,
+                    *unscaled_value * LEGACY_REBASE_MULTIPLIER,
+                );
             }
             ScriptFunctionCallGenesis::CreateValidatorAccount {
                 sliding_nonce: _,
@@ -159,7 +172,7 @@ fn maybe_decode_v5_genesis_function(
                 ..
             } => {
                 wtx.relation_label =
-                    RelationLabel::Onboarding(cast_legacy_account(new_account_address)?);
+                    RelationLabel::Onboarding(cast_legacy_account(new_account_address)?, 0);
             }
             ScriptFunctionCallGenesis::CreateValidatorOperatorAccount {
                 sliding_nonce: _,
@@ -167,7 +180,7 @@ fn maybe_decode_v5_genesis_function(
                 ..
             } => {
                 wtx.relation_label =
-                    RelationLabel::Onboarding(cast_legacy_account(new_account_address)?);
+                    RelationLabel::Onboarding(cast_legacy_account(new_account_address)?, 0);
             }
 
             ScriptFunctionCallGenesis::MinerstateCommit { .. } => {
@@ -195,16 +208,22 @@ fn maybe_decode_v520_function(
         match sf {
             // NOTE: This balanceTransfer likely de/encodes to the same
             // bytes as v5 genesis
-            ScriptFunctionCallV520::BalanceTransfer { destination, .. } => {
-                wtx.relation_label = RelationLabel::Transfer(cast_legacy_account(destination)?);
+            ScriptFunctionCallV520::BalanceTransfer {
+                destination,
+                unscaled_value,
+            } => {
+                wtx.relation_label = RelationLabel::Transfer(
+                    cast_legacy_account(destination)?,
+                    *unscaled_value * LEGACY_REBASE_MULTIPLIER,
+                );
 
                 wtx.entry_function = Some(EntryFunctionArgs::V520(sf.to_owned()));
             }
             ScriptFunctionCallV520::CreateAccUser { .. } => {
-                wtx.relation_label = RelationLabel::Onboarding(wtx.sender);
+                wtx.relation_label = RelationLabel::Onboarding(wtx.sender, 0);
             }
             ScriptFunctionCallV520::CreateAccVal { .. } => {
-                wtx.relation_label = RelationLabel::Onboarding(wtx.sender);
+                wtx.relation_label = RelationLabel::Onboarding(wtx.sender, 0);
             }
 
             ScriptFunctionCallV520::CreateValidatorAccount {
@@ -213,7 +232,7 @@ fn maybe_decode_v520_function(
                 ..
             } => {
                 wtx.relation_label =
-                    RelationLabel::Onboarding(cast_legacy_account(new_account_address)?);
+                    RelationLabel::Onboarding(cast_legacy_account(new_account_address)?, 0);
             }
             ScriptFunctionCallV520::CreateValidatorOperatorAccount {
                 sliding_nonce: _,
@@ -221,7 +240,7 @@ fn maybe_decode_v520_function(
                 ..
             } => {
                 wtx.relation_label =
-                    RelationLabel::Onboarding(cast_legacy_account(new_account_address)?);
+                    RelationLabel::Onboarding(cast_legacy_account(new_account_address)?, 0);
             }
             ScriptFunctionCallV520::MinerstateCommit { .. } => {
                 wtx.relation_label = RelationLabel::Miner;
