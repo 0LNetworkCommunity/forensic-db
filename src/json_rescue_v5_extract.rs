@@ -3,6 +3,7 @@ use crate::{
     schema_transaction::{EntryFunctionArgs, RelationLabel, WarehouseEvent, WarehouseTxMaster},
     unzip_temp::decompress_tar_archive,
 };
+use chrono::DateTime;
 use diem_crypto::HashValue;
 use libra_backwards_compatibility::{
     sdk::{
@@ -12,14 +13,14 @@ use libra_backwards_compatibility::{
     version_five::{
         legacy_address_v5::LegacyAddressV5,
         transaction_type_v5::{TransactionPayload, TransactionV5},
-        transaction_view_v5::{EventDataView, ScriptView, TransactionDataView, TransactionViewV5},
+        transaction_view_v5::{ScriptView, TransactionDataView, TransactionViewV5},
     },
 };
 
 use anyhow::{anyhow, Context, Result};
 use diem_temppath::TempPath;
 use diem_types::account_address::AccountAddress;
-use log::{error, trace, warn};
+use log::trace;
 use std::path::{Path, PathBuf};
 
 /// The canonical transaction archives for V5 were kept in a different format as in v6 and v7.
@@ -43,54 +44,39 @@ pub fn decode_transaction_dataview_v5(
     let event_vec = vec![];
     let mut unique_functions = vec![];
 
-    let mut timestamp = 0;
-    let mut epoch_counter = 0;
     for t in txs {
         let mut wtxs = WarehouseTxMaster::default();
-        match &t.transaction {
-            TransactionDataView::UserTransaction { sender, script, .. } => {
-                wtxs.sender = cast_legacy_account(sender)?;
+        let timestamp = t.timestamp_usecs.unwrap_or(0);
+        if let TransactionDataView::UserTransaction { sender, script, .. } = &t.transaction {
+            wtxs.sender = cast_legacy_account(sender)?;
 
-                // must cast from V5 Hashvalue buffer layout
-                wtxs.tx_hash = HashValue::from_slice(t.hash.to_vec())?;
+            // must cast from V5 Hashvalue buffer layout
+            wtxs.tx_hash = HashValue::from_slice(t.hash.to_vec())?;
 
-                wtxs.function = make_function_name(script);
-                trace!("function: {}", &wtxs.function);
-                if !unique_functions.contains(&wtxs.function) {
-                    unique_functions.push(wtxs.function.clone());
-                }
-
-                decode_entry_function_v5(&mut wtxs, &t.bytes)?;
-
-                // TODO: timestamp
-                wtxs.block_timestamp = timestamp;
-
-                // TODO: create arg to exclude tx without counter party
-                match &wtxs.relation_label {
-                    RelationLabel::Unknown => {}
-                    RelationLabel::Transfer(..) => tx_vec.push(wtxs),
-                    RelationLabel::Onboarding(..) => tx_vec.push(wtxs),
-                    RelationLabel::Vouch(..) => tx_vec.push(wtxs),
-                    RelationLabel::Configuration => {}
-                    RelationLabel::Miner => {}
-                };
+            wtxs.function = make_function_name(script);
+            trace!("function: {}", &wtxs.function);
+            if !unique_functions.contains(&wtxs.function) {
+                unique_functions.push(wtxs.function.clone());
             }
-            TransactionDataView::BlockMetadata { timestamp_usecs } => {
-                if *timestamp_usecs < timestamp {
-                    error!("timestamps are not increasing");
-                } else {
-                    timestamp = *timestamp_usecs;
-                }
 
-                // TODO get epoch events
-                t.events.iter().for_each(|e| {
-                    if let EventDataView::NewEpoch { epoch } = &e.data {
-                        warn!("new epoch event: {:?}", epoch);
-                        epoch_counter = *epoch;
-                    }
-                });
-            }
-            _ => {}
+            decode_entry_function_v5(&mut wtxs, &t.bytes)?;
+
+            // TODO: EPOCH does not exist in v5 rescue json transaction record
+            // each .json is not guaranteed to have an epoch change event.
+            // tracking epoch change events and incrementing is error prone
+            // as the async loader does not guarantee ordered reading of files.
+            wtxs.block_timestamp = timestamp;
+            wtxs.block_datetime =
+                DateTime::from_timestamp_micros(timestamp as i64).expect("get timestamp");
+
+            match &wtxs.relation_label {
+                RelationLabel::Unknown => {}
+                RelationLabel::Transfer(..) => tx_vec.push(wtxs),
+                RelationLabel::Onboarding(..) => tx_vec.push(wtxs),
+                RelationLabel::Vouch(..) => tx_vec.push(wtxs),
+                RelationLabel::Configuration => {}
+                RelationLabel::Miner => {}
+            };
         }
     }
     Ok((tx_vec, event_vec, unique_functions))

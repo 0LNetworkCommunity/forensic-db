@@ -107,7 +107,6 @@ pub struct WarehouseTxMaster {
     pub tx_hash: HashValue,
     pub relation_label: RelationLabel,
     pub sender: AccountAddress,
-    // pub recipient: Option<AccountAddress>,
     pub function: String,
     pub epoch: u64,
     pub round: u64,
@@ -116,6 +115,7 @@ pub struct WarehouseTxMaster {
     pub expiration_timestamp: u64,
     pub entry_function: Option<EntryFunctionArgs>,
     pub events: Vec<WarehouseEvent>,
+    // TODO framework version
 }
 
 impl Default for WarehouseTxMaster {
