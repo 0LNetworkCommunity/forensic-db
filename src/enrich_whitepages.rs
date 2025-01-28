@@ -1,29 +1,17 @@
+use crate::util::de_address_from_any_string;
 use anyhow::{Context, Result};
 use diem_types::account_address::AccountAddress;
-use log::info;
+use log::{error, info};
 use neo4rs::Graph;
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Whitepages {
-    #[serde(deserialize_with = "from_any_string")]
+    #[serde(deserialize_with = "de_address_from_any_string")]
     address: Option<AccountAddress>,
     owner: Option<String>,
     address_note: Option<String>,
-}
-
-fn from_any_string<'de, D>(deserializer: D) -> Result<Option<AccountAddress>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let s: &str = Deserialize::deserialize(deserializer)?;
-    // do better hex decoding than this
-    let mut lower = s.to_ascii_lowercase();
-    if !lower.contains("0x") {
-        lower = format!("0x{}", lower);
-    }
-    Ok(AccountAddress::from_hex_literal(&lower).ok())
 }
 
 impl Whitepages {
@@ -33,12 +21,16 @@ impl Whitepages {
     }
 
     pub fn to_cypher_object_template(&self) -> String {
-        format!(
-            r#"{{owner: "{}", address: "{}" }}"#,
-            self.owner.as_ref().unwrap(),
-            self.address.as_ref().unwrap().to_hex_literal(),
-            // self.address_note,
-        )
+        if let Some(addr) = &self.address {
+            format!(
+                r#"{{owner: "{}", address: "{}"}}"#,
+                self.owner.as_ref().unwrap(),
+                addr.to_hex_literal(),
+            )
+        } else {
+            error!("missing address at {:#?}", &self);
+            "".to_string()
+        }
     }
 
     /// create a cypher query string for the map object

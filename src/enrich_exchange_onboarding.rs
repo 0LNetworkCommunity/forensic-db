@@ -1,8 +1,9 @@
+use crate::util::de_address_from_any_string;
 use anyhow::{Context, Result};
 use diem_types::account_address::AccountAddress;
 use log::info;
 use neo4rs::Graph;
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 // Exchange onboard json files are formatted like so:
@@ -11,33 +12,34 @@ use std::path::Path;
 // [
 //   {
 //     "user_id": 189,
-//     "onboarding_addr": "01F3B9C815FEB654718DE5D53CD665699A2B80951B696939E2D9EC27D0126BAD"
+//     "onramp_address": "01F3B9C815FEB654718DE5D53CD665699A2B80951B696939E2D9EC27D0126BAD"
 //   },
 //   ...
 // ]
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ExchangeOnRamp {
-    #[serde(deserialize_with = "from_any_string")]
-    onboarding_addr: Option<AccountAddress>,
+    #[serde(deserialize_with = "de_address_from_any_string")]
+    onramp_address: Option<AccountAddress>,
     // TODO: this should be string, since exchanges/bridges will have different identifiers
     user_id: u64,
 }
 
-fn from_any_string<'de, D>(deserializer: D) -> Result<Option<AccountAddress>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let s: &str = Deserialize::deserialize(deserializer)?;
-    // do better hex decoding than this
-    let mut lower = s.to_ascii_lowercase();
-    if !lower.contains("0x") {
-        lower = format!("0x{}", lower);
-    }
+// fn from_any_string<'de, D>(deserializer: D) -> Result<Option<AccountAddress>, D::Error>
+// where
+//     D: Deserializer<'de>,
+// {
+//     let s: &str = Deserialize::deserialize(deserializer)?;
+//     // do better hex decoding than this
+//     let mut lower = s.to_ascii_lowercase();
+//     if !lower.contains("0x") {
+//         lower = format!("0x{}", lower);
+//     }
 
-    Ok(AccountAddress::from_hex_literal(&lower).ok())
-}
+//     Ok(AccountAddress::from_hex_literal(&lower).ok())
+// }
 
+/// get exchnge Onramp file
 // TODO: boilerplate copy of enrich_whitepages
 impl ExchangeOnRamp {
     pub fn parse_json_file(path: &Path) -> Result<Vec<Self>> {
@@ -49,7 +51,7 @@ impl ExchangeOnRamp {
         format!(
             r#"{{user_id: {}, address: "{}" }}"#,
             self.user_id,
-            self.onboarding_addr.as_ref().unwrap().to_hex_literal(),
+            self.onramp_address.as_ref().unwrap().to_hex_literal(),
         )
     }
 
@@ -58,7 +60,7 @@ impl ExchangeOnRamp {
         let mut list_literal = "".to_owned();
         for el in list {
             // skip empty records
-            if el.onboarding_addr.is_none() {
+            if el.onramp_address.is_none() {
                 continue;
             };
             let s = el.to_cypher_object_template();

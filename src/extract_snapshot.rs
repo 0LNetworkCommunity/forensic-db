@@ -4,6 +4,7 @@ use anyhow::Result;
 use diem_types::account_view::AccountView;
 use libra_backwards_compatibility::version_five::{
     balance_v5::BalanceResourceV5,
+    ol_tower_state::TowerStateResource,
     ol_wallet::SlowWalletResourceV5,
     state_snapshot_v5::{v5_accounts_from_manifest_path, v5_read_from_snapshot_manifest},
 };
@@ -23,10 +24,11 @@ use crate::{
 };
 
 // uses libra-compatibility to parse the v5 manifest files, and decode v5 format bytecode into current version data structures (v6+);
-pub async fn extract_v5_snapshot(v5_manifest_path: &Path) -> Result<Vec<WarehouseAccState>> {
+pub async fn extract_v5_snapshot(archive_path: &Path) -> Result<Vec<WarehouseAccState>> {
+    let v5_manifest_path = archive_path.join("state.manifest");
     // NOTE: this is duplicated with next step.
-    let manifest_data = v5_read_from_snapshot_manifest(v5_manifest_path)?;
-    let account_blobs = v5_accounts_from_manifest_path(v5_manifest_path).await?;
+    let manifest_data = v5_read_from_snapshot_manifest(&v5_manifest_path)?;
+    let account_blobs = v5_accounts_from_manifest_path(&v5_manifest_path).await?;
 
     // TODO: see below, massively inefficient
     let time = WarehouseTime {
@@ -57,8 +59,12 @@ pub async fn extract_v5_snapshot(v5_manifest_path: &Path) -> Result<Vec<Warehous
                     s.balance = b.coin()
                 }
                 if let Ok(sw) = acc.get_resource::<SlowWalletResourceV5>() {
-                    s.slow_wallet_locked = sw.unlocked;
+                    s.slow_wallet_unlocked = sw.unlocked;
                     s.slow_wallet_transferred = sw.transferred;
+                }
+
+                if let Ok(tower) = acc.get_resource::<TowerStateResource>() {
+                    s.miner_height = Some(tower.verified_tower_height);
                 }
 
                 warehouse_state.push(s);
@@ -111,7 +117,7 @@ pub async fn extract_current_snapshot(archive_path: &Path) -> Result<Vec<Warehou
             }
 
             if let Some(sw) = el.get_resource::<SlowWalletResource>()? {
-                s.slow_wallet_locked = sw.unlocked;
+                s.slow_wallet_unlocked = sw.unlocked;
                 s.slow_wallet_transferred = sw.transferred;
             }
 

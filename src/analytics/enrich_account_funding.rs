@@ -12,7 +12,7 @@ use std::{
 use crate::schema_exchange_orders::{ExchangeOrder, OrderType};
 
 #[cfg(test)]
-use crate::date_util::parse_date;
+use crate::util::parse_date;
 
 #[derive(Default, Debug, Clone, Deserialize, Serialize)]
 pub struct AccountDataAlt {

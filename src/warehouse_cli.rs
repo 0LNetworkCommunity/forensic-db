@@ -1,13 +1,12 @@
 use anyhow::{bail, Result};
 use clap::{Parser, Subcommand};
-use log::{error, info, warn};
+use log::{debug, error, info, warn};
 use neo4rs::Graph;
 use serde_json::json;
 use std::path::PathBuf;
 
 use crate::{
     analytics::{self, offline_matching::Matching},
-    date_util,
     enrich_exchange_onboarding::{self, ExchangeOnRamp},
     enrich_whitepages::{self, Whitepages},
     json_rescue_v5_load,
@@ -15,6 +14,7 @@ use crate::{
     load_exchange_orders,
     neo4j_init::{self, get_credentials_from_env, PASS_ENV, URI_ENV, USER_ENV},
     scan::{scan_dir_archive, BundleContent},
+    util,
 };
 
 #[derive(Parser)]
@@ -157,6 +157,7 @@ impl WarehouseCli {
                 batch_size,
             } => {
                 let am = scan_dir_archive(archive_dir, None)?;
+                debug!("archive map: {:?}", &am);
                 if am.0.is_empty() {
                     error!("cannot find .manifest file under {}", archive_dir.display());
                 }
@@ -260,8 +261,8 @@ impl WarehouseCli {
                         let _ = m
                             .depth_search_by_top_n_accounts(
                                 &pool,
-                                date_util::parse_date(start_day),
-                                date_util::parse_date(end_day),
+                                util::parse_date(start_day),
+                                util::parse_date(end_day),
                                 *top_n,
                                 Some(dir.clone()),
                             )
@@ -271,8 +272,8 @@ impl WarehouseCli {
                     if let Some(tolerance) = match_simple_dumps {
                         m.search_dumps(
                             &pool,
-                            date_util::parse_date(start_day),
-                            date_util::parse_date(end_day),
+                            util::parse_date(start_day),
+                            util::parse_date(end_day),
                             *tolerance,
                         )
                         .await?;
