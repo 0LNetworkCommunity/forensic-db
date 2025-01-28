@@ -51,12 +51,19 @@ pub async fn single_thread_decompress_extract(tgz_file: &Path, pool: &Graph) -> 
         created_count += res.created_tx as u64;
         found_count += records.len() as u64;
     }
-
-    info!("V5 transactions found: {}", found_count);
-    info!("V5 transactions inserted: {}", created_count);
-    if found_count != created_count {
-        warn!("transactions loaded don't match transactions extracted, perhaps previously loaded?");
+    if found_count > 0 && created_count > 0 {
+        info!("V5 transactions found: {}", found_count);
+        info!("V5 transactions inserted: {}", created_count);
+        if found_count != created_count {
+            warn!("transactions loaded don't match transactions extracted, perhaps previously loaded?");
+        }
+    } else {
+        info!(
+            "No transactions submitted, archive likely already loaded. File: {}",
+            tgz_file.display()
+        );
     }
+
     Ok(created_count)
 }
 
