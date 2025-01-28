@@ -1,7 +1,6 @@
 pub mod analytics;
 pub mod batch_tx_type;
 pub mod cypher_templates;
-pub mod date_util;
 pub mod decode_entry_function;
 pub mod enrich_exchange_onboarding;
 pub mod enrich_whitepages;
@@ -21,6 +20,7 @@ pub mod schema_account_state;
 pub mod schema_exchange_orders;
 pub mod schema_transaction;
 pub mod unzip_temp;
+pub mod util;
 pub mod v5_rpc_to_raw;
 pub mod warehouse_cli;
 
