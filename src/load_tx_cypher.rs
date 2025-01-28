@@ -96,7 +96,6 @@ pub async fn impl_batch_tx_insert(
     // cypher queries makes it annoying to do a single insert of users and
     // txs
     let cypher_string = write_batch_user_create(&list_str);
-    // dbg!(format!("{:#}",cypher_string));
 
     // Execute the query
     let cypher_query = query(&cypher_string);
@@ -120,7 +119,9 @@ pub async fn impl_batch_tx_insert(
         .get("unchanged_accounts")
         .context("no unchanged_accounts field")?;
 
+    dbg!(&list_str);
     let cypher_string = write_batch_tx_string(&list_str);
+    dbg!(&cypher_string);
 
     // Execute the query
     let cypher_query = query(&cypher_string);
