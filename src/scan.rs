@@ -8,6 +8,7 @@ use libra_backwards_compatibility::version_five::{
     transaction_manifest_v5::v5_read_from_transaction_manifest,
 };
 use libra_storage::read_snapshot::load_snapshot_manifest;
+use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
     fmt,
@@ -59,7 +60,7 @@ impl ManifestInfo {
         FrameworkVersion::Unknown
     }
 }
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub enum FrameworkVersion {
     #[default]
     Unknown,

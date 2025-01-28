@@ -1,4 +1,5 @@
 use crate::decode_entry_function::decode_entry_function_all_versions;
+use crate::scan::FrameworkVersion;
 use crate::schema_transaction::{RelationLabel, UserEventTypes, WarehouseEvent, WarehouseTxMaster};
 use anyhow::Result;
 use chrono::DateTime;
@@ -14,6 +15,7 @@ use std::path::Path;
 
 pub async fn extract_current_transactions(
     archive_path: &Path,
+    framework_version: &FrameworkVersion,
 ) -> Result<(Vec<WarehouseTxMaster>, Vec<WarehouseEvent>)> {
     let manifest_file = archive_path.join("transaction.manifest");
     assert!(
@@ -75,8 +77,14 @@ pub async fn extract_current_transactions(
             events.append(&mut decoded_events);
 
             if let Some(signed_transaction) = tx.try_as_signed_user_txn() {
-                let tx =
-                    make_master_tx(signed_transaction, epoch, round, timestamp, decoded_events)?;
+                let tx = make_master_tx(
+                    signed_transaction,
+                    epoch,
+                    round,
+                    timestamp,
+                    decoded_events,
+                    framework_version,
+                )?;
 
                 // sanity check that we are talking about the same block, and reading vectors sequentially.
                 if tx.tx_hash != tx_hash_info {
@@ -105,6 +113,7 @@ pub fn make_master_tx(
     round: u64,
     block_timestamp: u64,
     events: Vec<WarehouseEvent>,
+    framework_version: &FrameworkVersion,
 ) -> Result<WarehouseTxMaster> {
     let tx_hash = user_tx.clone().committed_hash();
     let raw = user_tx.raw_transaction_ref();
@@ -136,6 +145,7 @@ pub fn make_master_tx(
         relation_label,
         block_datetime: DateTime::from_timestamp_micros(block_timestamp as i64).unwrap(),
         events,
+        framework_version: framework_version.clone(),
     };
 
     Ok(tx)

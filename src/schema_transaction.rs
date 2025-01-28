@@ -1,4 +1,4 @@
-use crate::cypher_templates::to_cypher_object;
+use crate::{cypher_templates::to_cypher_object, scan::FrameworkVersion};
 
 use chrono::{DateTime, Utc};
 use diem_crypto::HashValue;
@@ -115,6 +115,7 @@ pub struct WarehouseTxMaster {
     pub expiration_timestamp: u64,
     pub entry_function: Option<EntryFunctionArgs>,
     pub events: Vec<WarehouseEvent>,
+    pub framework_version: FrameworkVersion,
     // TODO framework version
 }
 
@@ -132,6 +133,7 @@ impl Default for WarehouseTxMaster {
             expiration_timestamp: 0,
             entry_function: None,
             events: vec![],
+            framework_version: FrameworkVersion::Unknown,
         }
     }
 }
@@ -155,7 +157,7 @@ impl WarehouseTxMaster {
             None => "".to_string(),
         };
         format!(
-            r#"{{ args: {maybe_args_here},{maybe_coins_here}tx_hash: "{}", block_datetime: datetime("{}"), block_timestamp: {}, relation: "{}", function: "{}", sender: "{}", recipient: "{}"}}"#,
+            r#"{{ args: {maybe_args_here},{maybe_coins_here}tx_hash: "{}", block_datetime: datetime("{}"), block_timestamp: {}, relation: "{}", function: "{}", sender: "{}", recipient: "{}", framework_version: "{}"}}"#,
             self.tx_hash.to_hex_literal(),
             self.block_datetime.to_rfc3339(),
             self.block_timestamp,
@@ -167,6 +169,7 @@ impl WarehouseTxMaster {
                 .get_recipient()
                 .unwrap_or(self.sender)
                 .to_hex_literal(),
+            self.framework_version,
             maybe_args_here = tx_args,
             maybe_coins_here = coins_literal
         )

@@ -21,7 +21,8 @@ SET
     rel.block_datetime = tx.block_datetime,
     rel.block_timestamp = tx.block_timestamp,
     rel.relation = tx.relation,
-    rel.function = tx.function
+    rel.function = tx.function,
+    rel.framework_version = tx.framework_version
 
 // Conditionally add `tx.args` if it exists
 FOREACH (_ IN CASE WHEN tx.args IS NOT NULL THEN [1] ELSE [] END |

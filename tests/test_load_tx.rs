@@ -8,7 +8,7 @@ use libra_forensic_db::{
     load::try_load_one_archive,
     load_tx_cypher::tx_batch,
     neo4j_init::{get_neo4j_localhost_pool, maybe_create_indexes},
-    scan::scan_dir_archive,
+    scan::{scan_dir_archive, FrameworkVersion},
     schema_transaction::WarehouseTxMaster,
 };
 use neo4rs::query;
@@ -18,7 +18,7 @@ use support::neo4j_testcontainer::start_neo4j_container;
 async fn test_tx_batch() -> anyhow::Result<()> {
     libra_forensic_db::log_setup();
     let archive_path = support::fixtures::v6_tx_manifest_fixtures_path();
-    let (txs, _events) = extract_current_transactions(&archive_path).await?;
+    let (txs, _events) = extract_current_transactions(&archive_path, &FrameworkVersion::V6).await?;
     assert!(txs.len() == 27);
 
     let c = start_neo4j_container();

@@ -1,11 +1,13 @@
 mod support;
 
-use libra_forensic_db::extract_transactions::extract_current_transactions;
+use libra_forensic_db::{
+    extract_transactions::extract_current_transactions, scan::FrameworkVersion,
+};
 
 #[tokio::test]
 async fn test_extract_tx_from_archive() -> anyhow::Result<()> {
     let archive_path = support::fixtures::v7_tx_manifest_fixtures_path();
-    let list = extract_current_transactions(&archive_path).await?;
+    let list = extract_current_transactions(&archive_path, &FrameworkVersion::V6).await?;
 
     assert!(list.0.len() == 6);
 
@@ -15,7 +17,7 @@ async fn test_extract_tx_from_archive() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_extract_v6_tx_from_archive() -> anyhow::Result<()> {
     let archive_path = support::fixtures::v6_tx_manifest_fixtures_path();
-    let list = extract_current_transactions(&archive_path).await?;
+    let list = extract_current_transactions(&archive_path, &FrameworkVersion::V6).await?;
 
     assert!(list.0.len() == 27);
     assert!(list.1.len() == 52);

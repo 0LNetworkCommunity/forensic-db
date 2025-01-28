@@ -1,6 +1,9 @@
 use crate::{
-    schema_transaction::LEGACY_REBASE_MULTIPLIER,
-    schema_transaction::{EntryFunctionArgs, RelationLabel, WarehouseEvent, WarehouseTxMaster},
+    scan::FrameworkVersion,
+    schema_transaction::{
+        EntryFunctionArgs, RelationLabel, WarehouseEvent, WarehouseTxMaster,
+        LEGACY_REBASE_MULTIPLIER,
+    },
     unzip_temp::decompress_tar_archive,
 };
 use chrono::DateTime;
@@ -45,12 +48,16 @@ pub fn decode_transaction_dataview_v5(
     let mut unique_functions = vec![];
 
     for t in txs {
-        let mut wtxs = WarehouseTxMaster::default();
+        let mut wtxs = WarehouseTxMaster {
+            framework_version: FrameworkVersion::V5,
+            ..Default::default()
+        };
+
         let timestamp = t.timestamp_usecs.unwrap_or(0);
         if let TransactionDataView::UserTransaction { sender, script, .. } = &t.transaction {
             wtxs.sender = cast_legacy_account(sender)?;
 
-            // must cast from V5 Hashvalue buffer layout
+            // must cast from V5 HashValue buffer layout
             wtxs.tx_hash = HashValue::from_slice(t.hash.to_vec())?;
 
             wtxs.function = make_function_name(script);
