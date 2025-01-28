@@ -21,16 +21,19 @@ pub static INDEX_HEX_ADDR: &str =
     "CREATE TEXT INDEX hex_addr IF NOT EXISTS FOR (n:Account) ON (n.address)";
 
 pub static INDEX_TX_TIMESTAMP: &str =
-    "CREATE INDEX tx_timestamp IF NOT EXISTS FOR ()-[r:Transfer]-() ON (r.block_timestamp)";
+    "CREATE INDEX tx_timestamp IF NOT EXISTS FOR ()-[r:Tx]-() ON (r.block_datetime)";
 
 pub static INDEX_TX_HASH: &str =
-    "CREATE INDEX tx_function IF NOT EXISTS FOR ()-[r:Transfer]-() ON (r.tx_hash)";
+    "CREATE INDEX tx_function IF NOT EXISTS FOR ()-[r:Tx]-() ON (r.tx_hash)";
 
-pub static INDEX_TX_FUNCTION: &str =
-    "CREATE INDEX tx_function IF NOT EXISTS FOR ()-[r:Transfer]-() ON (r.function)";
+pub static INDEX_TX_AMOUNT: &str =
+    "CREATE INDEX tx_function IF NOT EXISTS FOR ()-[r:Tx]-() ON (r.amount)";
 
-// pub static INDEX_TX_RELATION: &str =
-//     "CREATE INDEX tx_relation IF NOT EXISTS FOR ()-[r:Transfer:Vouch:Onboarding]-() ON (r.relation)";
+pub static INDEX_TX_FRAMEWORK: &str =
+    "CREATE INDEX tx_function IF NOT EXISTS FOR ()-[r:Tx]-() ON (r.framework_version)";
+
+pub static INDEX_TX_RELATION: &str =
+    "CREATE INDEX tx_relation IF NOT EXISTS FOR ()-[r:Tx]-() ON (r.relation)";
 
 pub static INDEX_SWAP_ID: &str =
     "CREATE INDEX swap_account_id IF NOT EXISTS FOR (n:SwapAccount) ON (n.swap_id)";
@@ -79,8 +82,9 @@ pub async fn maybe_create_indexes(graph: &Graph) -> Result<()> {
         INDEX_HEX_ADDR,
         INDEX_TX_TIMESTAMP,
         INDEX_TX_HASH,
-        INDEX_TX_FUNCTION,
-        // INDEX_TX_RELATION,
+        INDEX_TX_AMOUNT,
+        INDEX_TX_FRAMEWORK,
+        INDEX_TX_RELATION,
         INDEX_SWAP_ID,
         INDEX_EXCHANGE_LEDGER,
         INDEX_EXCHANGE_LINK_LEDGER,
