@@ -27,12 +27,9 @@ pub enum RelationLabel {
     // - decimal precision scaling
     Transfer(AccountAddress, u64),
     Onboarding(AccountAddress, u64),
-
     Vouch(AccountAddress),
     Configuration,
     Miner,
-    // Script,
-    // MiscEntryFunction,
 }
 
 impl RelationLabel {
