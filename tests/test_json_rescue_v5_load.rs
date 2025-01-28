@@ -67,6 +67,7 @@ async fn test_load_queue() -> anyhow::Result<()> {
     let path = fixtures::v5_json_tx_path();
 
     let tx_count = json_rescue_v5_load::rip_concurrent_limited(&path, &pool, None).await?;
+    dbg!(&tx_count);
     assert!(tx_count == 13);
 
     let tx_count = json_rescue_v5_load::rip_concurrent_limited(&path, &pool, None).await?;

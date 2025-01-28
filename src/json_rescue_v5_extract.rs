@@ -54,7 +54,7 @@ pub fn extract_v5_json_rescue(
                 }
 
                 decode_transaction_args(&mut wtxs, &t.bytes)?;
-
+                dbg!(&wtxs);
                 // TODO:
                 // wtxs.events
                 // TODO:
@@ -62,7 +62,7 @@ pub fn extract_v5_json_rescue(
 
                 // TODO: create arg to exclude tx without counter party
                 match &wtxs.relation_label {
-                    RelationLabel::Tx => {}
+                    RelationLabel::Unknown => {}
                     RelationLabel::Transfer(_) => tx_vec.push(wtxs),
                     RelationLabel::Onboarding(_) => tx_vec.push(wtxs),
                     RelationLabel::Vouch(_) => tx_vec.push(wtxs),
@@ -88,7 +88,7 @@ pub fn extract_v5_json_rescue(
             _ => {}
         }
     }
-
+    dbg!(&tx_vec);
     Ok((tx_vec, event_vec, unique_functions))
 }
 
@@ -103,109 +103,133 @@ pub fn decode_transaction_args(wtx: &mut WarehouseTxMaster, tx_bytes: &[u8]) -> 
     })?;
 
     if let TransactionV5::UserTransaction(u) = &t {
+        // check this is actually a ScriptFunction
         if let TransactionPayload::ScriptFunction(_) = &u.raw_txn.payload {
-            if let Some(sf) = &ScriptFunctionCallGenesis::decode(&u.raw_txn.payload) {
-                wtx.entry_function = Some(EntryFunctionArgs::V5(sf.to_owned()));
-                // TODO: some script functions have very large payloads which clog the e.g. Miner. So those are only added for the catch-all txs which don't fall into categories we are interested in.
-                match sf {
-                    ScriptFunctionCallGenesis::BalanceTransfer { destination, .. } => {
-                        wtx.relation_label =
-                            RelationLabel::Transfer(cast_legacy_account(destination)?);
-
-                        wtx.entry_function = Some(EntryFunctionArgs::V5(sf.to_owned()));
-                    }
-                    ScriptFunctionCallGenesis::AutopayCreateInstruction { payee, .. } => {
-                        wtx.relation_label = RelationLabel::Transfer(cast_legacy_account(payee)?);
-                        wtx.entry_function = Some(EntryFunctionArgs::V5(sf.to_owned()));
-                    }
-                    ScriptFunctionCallGenesis::CreateAccUser { .. } => {
-                        // onboards self
-                        wtx.relation_label = RelationLabel::Onboarding(wtx.sender);
-                    }
-                    ScriptFunctionCallGenesis::CreateAccVal { .. } => {
-                        // onboards self
-                        wtx.relation_label = RelationLabel::Onboarding(wtx.sender);
-                    }
-
-                    ScriptFunctionCallGenesis::CreateUserByCoinTx { account, .. } => {
-                        wtx.relation_label =
-                            RelationLabel::Onboarding(cast_legacy_account(account)?);
-                    }
-                    ScriptFunctionCallGenesis::CreateValidatorAccount {
-                        sliding_nonce: _,
-                        new_account_address,
-                        ..
-                    } => {
-                        wtx.relation_label =
-                            RelationLabel::Onboarding(cast_legacy_account(new_account_address)?);
-                    }
-                    ScriptFunctionCallGenesis::CreateValidatorOperatorAccount {
-                        sliding_nonce: _,
-                        new_account_address,
-                        ..
-                    } => {
-                        wtx.relation_label =
-                            RelationLabel::Onboarding(cast_legacy_account(new_account_address)?);
-                    }
-
-                    ScriptFunctionCallGenesis::MinerstateCommit { .. } => {
-                        wtx.relation_label = RelationLabel::Miner;
-                    }
-                    ScriptFunctionCallGenesis::MinerstateCommitByOperator { .. } => {
-                        wtx.relation_label = RelationLabel::Miner;
-                    }
-                    _ => {
-                        wtx.relation_label = RelationLabel::Configuration;
-
-                        wtx.entry_function = Some(EntryFunctionArgs::V5(sf.to_owned()));
-                    }
-                }
-            }
-
-            if let Some(sf) = &ScriptFunctionCallV520::decode(&u.raw_txn.payload) {
-                wtx.entry_function = Some(EntryFunctionArgs::V520(sf.to_owned()));
-
-                match sf {
-                    ScriptFunctionCallV520::CreateAccUser { .. } => {
-                        wtx.relation_label = RelationLabel::Onboarding(wtx.sender);
-                    }
-                    ScriptFunctionCallV520::CreateAccVal { .. } => {
-                        wtx.relation_label = RelationLabel::Onboarding(wtx.sender);
-                    }
-
-                    ScriptFunctionCallV520::CreateValidatorAccount {
-                        sliding_nonce: _,
-                        new_account_address,
-                        ..
-                    } => {
-                        wtx.relation_label =
-                            RelationLabel::Onboarding(cast_legacy_account(new_account_address)?);
-                    }
-                    ScriptFunctionCallV520::CreateValidatorOperatorAccount {
-                        sliding_nonce: _,
-                        new_account_address,
-                        ..
-                    } => {
-                        wtx.relation_label =
-                            RelationLabel::Onboarding(cast_legacy_account(new_account_address)?);
-                    }
-                    ScriptFunctionCallV520::MinerstateCommit { .. } => {
-                        wtx.relation_label = RelationLabel::Miner;
-                    }
-                    ScriptFunctionCallV520::MinerstateCommitByOperator { .. } => {
-                        wtx.relation_label = RelationLabel::Miner;
-                    }
-                    _ => {
-                        wtx.relation_label = RelationLabel::Configuration;
-                        wtx.entry_function = Some(EntryFunctionArgs::V520(sf.to_owned()));
-                    }
-                }
+            maybe_decode_v5_genesis_function(wtx, &u.raw_txn.payload)?;
+            // if still unknown TX try again with v5.2.0
+            if let RelationLabel::Unknown = wtx.relation_label {
+                maybe_decode_v520_function(wtx, &u.raw_txn.payload)?;
             }
         }
     }
     Ok(())
 }
 
+fn maybe_decode_v5_genesis_function(
+    wtx: &mut WarehouseTxMaster,
+    payload: &TransactionPayload,
+) -> Result<()> {
+    if let Some(sf) = &ScriptFunctionCallGenesis::decode(payload) {
+        dbg!(&sf);
+        wtx.entry_function = Some(EntryFunctionArgs::V5(sf.to_owned()));
+        // TODO: some script functions have very large payloads which clog the e.g. Miner. So those are only added for the catch-all txs which don't fall into categories we are interested in.
+        match sf {
+            ScriptFunctionCallGenesis::BalanceTransfer { destination, .. } => {
+                wtx.relation_label = RelationLabel::Transfer(cast_legacy_account(destination)?);
+
+                wtx.entry_function = Some(EntryFunctionArgs::V5(sf.to_owned()));
+            }
+            ScriptFunctionCallGenesis::AutopayCreateInstruction { payee, .. } => {
+                wtx.relation_label = RelationLabel::Transfer(cast_legacy_account(payee)?);
+                wtx.entry_function = Some(EntryFunctionArgs::V5(sf.to_owned()));
+            }
+            ScriptFunctionCallGenesis::CreateAccUser { .. } => {
+                // onboards self
+                wtx.relation_label = RelationLabel::Onboarding(wtx.sender);
+            }
+            ScriptFunctionCallGenesis::CreateAccVal { .. } => {
+                // onboards self
+                wtx.relation_label = RelationLabel::Onboarding(wtx.sender);
+            }
+
+            ScriptFunctionCallGenesis::CreateUserByCoinTx { account, .. } => {
+                dbg!(&account);
+                wtx.relation_label = RelationLabel::Onboarding(cast_legacy_account(account)?);
+            }
+            ScriptFunctionCallGenesis::CreateValidatorAccount {
+                sliding_nonce: _,
+                new_account_address,
+                ..
+            } => {
+                wtx.relation_label =
+                    RelationLabel::Onboarding(cast_legacy_account(new_account_address)?);
+            }
+            ScriptFunctionCallGenesis::CreateValidatorOperatorAccount {
+                sliding_nonce: _,
+                new_account_address,
+                ..
+            } => {
+                wtx.relation_label =
+                    RelationLabel::Onboarding(cast_legacy_account(new_account_address)?);
+            }
+
+            ScriptFunctionCallGenesis::MinerstateCommit { .. } => {
+                wtx.relation_label = RelationLabel::Miner;
+            }
+            ScriptFunctionCallGenesis::MinerstateCommitByOperator { .. } => {
+                wtx.relation_label = RelationLabel::Miner;
+            }
+            _ => {
+                wtx.relation_label = RelationLabel::Unknown;
+
+                wtx.entry_function = Some(EntryFunctionArgs::V5(sf.to_owned()));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn maybe_decode_v520_function(
+    wtx: &mut WarehouseTxMaster,
+    payload: &TransactionPayload,
+) -> Result<()> {
+    if let Some(sf) = &ScriptFunctionCallV520::decode(payload) {
+        wtx.entry_function = Some(EntryFunctionArgs::V520(sf.to_owned()));
+        match sf {
+            // NOTE: This balanceTransfer likely de/encodes to the same
+            // bytes as v5 genesis
+            ScriptFunctionCallV520::BalanceTransfer { destination, .. } => {
+                wtx.relation_label = RelationLabel::Transfer(cast_legacy_account(destination)?);
+
+                wtx.entry_function = Some(EntryFunctionArgs::V520(sf.to_owned()));
+            }
+            ScriptFunctionCallV520::CreateAccUser { .. } => {
+                wtx.relation_label = RelationLabel::Onboarding(wtx.sender);
+            }
+            ScriptFunctionCallV520::CreateAccVal { .. } => {
+                wtx.relation_label = RelationLabel::Onboarding(wtx.sender);
+            }
+
+            ScriptFunctionCallV520::CreateValidatorAccount {
+                sliding_nonce: _,
+                new_account_address,
+                ..
+            } => {
+                wtx.relation_label =
+                    RelationLabel::Onboarding(cast_legacy_account(new_account_address)?);
+            }
+            ScriptFunctionCallV520::CreateValidatorOperatorAccount {
+                sliding_nonce: _,
+                new_account_address,
+                ..
+            } => {
+                wtx.relation_label =
+                    RelationLabel::Onboarding(cast_legacy_account(new_account_address)?);
+            }
+            ScriptFunctionCallV520::MinerstateCommit { .. } => {
+                wtx.relation_label = RelationLabel::Miner;
+            }
+            ScriptFunctionCallV520::MinerstateCommitByOperator { .. } => {
+                wtx.relation_label = RelationLabel::Miner;
+            }
+            _ => {
+                wtx.relation_label = RelationLabel::Unknown;
+                wtx.entry_function = Some(EntryFunctionArgs::V520(sf.to_owned()));
+            }
+        }
+    }
+    Ok(())
+}
 /// from a tgz file unwrap to temp path
 /// NOTE: we return the Temppath object for the directory
 /// for the enclosing function to handle
