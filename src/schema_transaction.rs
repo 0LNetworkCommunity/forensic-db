@@ -21,12 +21,13 @@ pub const COIN_DECIMAL_PRECISION: f64 = 1000000.0;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum RelationLabel {
-    Tx, // undefined tx
+    Unknown, // undefined tx
     // NOTE: amount u64 includes:
     // - legacy multiplier in v6 rebase (for all pre-v6 data)
     // - decimal precision scaling
     Transfer(AccountAddress, u64),
     Onboarding(AccountAddress, u64),
+
     Vouch(AccountAddress),
     Configuration,
     Miner,
@@ -37,7 +38,7 @@ pub enum RelationLabel {
 impl RelationLabel {
     pub fn to_cypher_label(&self) -> String {
         match self {
-            RelationLabel::Tx => "MiscTx".to_owned(),
+            RelationLabel::Unknown => "Unknown".to_owned(),
             RelationLabel::Transfer(..) => "Transfer".to_owned(),
             RelationLabel::Onboarding(..) => "Onboarding".to_owned(),
             RelationLabel::Vouch(..) => "Vouch".to_owned(),
@@ -48,7 +49,7 @@ impl RelationLabel {
 
     pub fn get_recipient(&self) -> Option<AccountAddress> {
         match &self {
-            RelationLabel::Tx => None,
+            RelationLabel::Unknown => None,
             RelationLabel::Transfer(account_address, _) => Some(*account_address),
             RelationLabel::Onboarding(account_address, _) => Some(*account_address),
             RelationLabel::Vouch(account_address) => Some(*account_address),
