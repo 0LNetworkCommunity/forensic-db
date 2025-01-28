@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 pub const LEGACY_REBASE_MULTIPLIER: u64 = 35;
 /// Decimal precision
 // TODO: duplication, this is probably defined in libra-framework somewhere
-pub const COIN_DECIMAL_PRECISION: f64 = 1000000.0;
+pub const COIN_DECIMAL_PRECISION: u64 = 1000000;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum RelationLabel {
@@ -59,13 +59,13 @@ impl RelationLabel {
         match &self {
             RelationLabel::Transfer(_, amount) => {
                 if *amount > 0 {
-                    let human = (*amount as f64) / COIN_DECIMAL_PRECISION;
+                    let human = (*amount as f64) / COIN_DECIMAL_PRECISION as f64;
                     return Some(human);
                 }
             }
             RelationLabel::Onboarding(_, amount) => {
                 if *amount > 0 {
-                    let human = (*amount as f64) / COIN_DECIMAL_PRECISION;
+                    let human = (*amount as f64) / COIN_DECIMAL_PRECISION as f64;
                     return Some(human);
                 }
             }
