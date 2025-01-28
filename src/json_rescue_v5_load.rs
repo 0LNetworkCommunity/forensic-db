@@ -21,6 +21,13 @@ static QUERY_BATCH_SIZE: usize = 250;
 /// and then read into the warehouse record format
 pub async fn single_thread_decompress_extract(tgz_file: &Path, pool: &Graph) -> Result<u64> {
     let temppath = decompress_to_temppath(tgz_file)?;
+    // for caching the archive
+    let tgz_filename = tgz_file
+        .file_name()
+        .expect("could not find .tgz filename")
+        .to_str()
+        .unwrap();
+
     let json_vec = list_all_json_files(temppath.path())?;
 
     let mut found_count = 0u64;
@@ -28,8 +35,15 @@ pub async fn single_thread_decompress_extract(tgz_file: &Path, pool: &Graph) -> 
 
     let mut unique_functions: Vec<String> = vec![];
 
+    if queue::are_all_completed(pool, tgz_filename).await? {
+        info!("Skipping, archive already loaded: {}", tgz_filename);
+        return Ok(0);
+    }
+
+    // TODO: the queue checks could be async, since many files are read
     for j in json_vec {
         let archive_id = j.file_name().unwrap().to_str().unwrap();
+        // checks for .json cases remaining where we were interrupted mid .tgz archive.
         let complete = queue::are_all_completed(pool, archive_id).await?;
         if complete {
             trace!(
@@ -50,6 +64,7 @@ pub async fn single_thread_decompress_extract(tgz_file: &Path, pool: &Graph) -> 
         let res = tx_batch(&records, pool, QUERY_BATCH_SIZE, archive_id).await?;
         created_count += res.created_tx as u64;
         found_count += records.len() as u64;
+        queue::update_task(pool, tgz_filename, true, 0).await?;
     }
     if found_count > 0 && created_count > 0 {
         info!("V5 transactions found: {}", found_count);
@@ -60,7 +75,7 @@ pub async fn single_thread_decompress_extract(tgz_file: &Path, pool: &Graph) -> 
     } else {
         info!(
             "No transactions submitted, archive likely already loaded. File: {}",
-            tgz_file.display()
+            tgz_filename
         );
     }
 
