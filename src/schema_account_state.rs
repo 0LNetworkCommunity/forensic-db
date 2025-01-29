@@ -57,7 +57,7 @@ impl WarehouseAccState {
 impl WarehouseAccState {
     /// creates one transaction record in the cypher query map format
     /// Note original data was in an RFC rfc3339 with Z for UTC, Cypher seems to prefer with offsets +00000
-    pub fn to_cypher_object_template(&self) -> String {
+    pub fn acc_state_to_cypher_map(&self) -> String {
         let slow_wallet_unlocked_literal = match self.slow_wallet_unlocked {
             Some(n) => n.to_string(),
             None => "NULL".to_string(),
@@ -92,7 +92,7 @@ impl WarehouseAccState {
     pub fn to_cypher_map(list: &[Self]) -> String {
         let mut list_literal = "".to_owned();
         for el in list {
-            let s = el.to_cypher_object_template();
+            let s = el.acc_state_to_cypher_map();
             list_literal.push_str(&s);
             list_literal.push(',');
         }
@@ -109,17 +109,32 @@ UNWIND tx_data AS tx
 MERGE (addr:Account {{address: tx.address}})
 MERGE (snap:Snapshot {{
     address: tx.address,
-    balance: tx.balance,
     epoch: tx.epoch,
-    framework_version: tx.framework_version,
-    version: tx.version,
-    sequence_num: tx.sequence_num,
-    slow_unlocked: tx.slow_unlocked,
-    slow_transfer: tx.slow_transfer,
-    slow_wallet: tx.slow_wallet,
-    donor_voice: tx.donor_voice,
-    miner_height: coalesce(tx.miner_height, 0)
+    version: tx.version
 }})
+
+SET
+  snap.balance = tx.balance,
+  snap.framework_version = tx.framework_version,
+  snap.sequence_num = tx.sequence_num,
+  snap.slow_wallet = tx.slow_wallet,
+  snap.donor_voice = tx.donor_voice
+
+// Conditionally add `tx.miner_height` if it exists
+FOREACH (_ IN CASE WHEN tx.miner_height IS NOT NULL THEN [1] ELSE [] END |
+    SET snap.miner_height = tx.miner_height
+)
+
+// Conditionally add `tx.slow_unlocked` if it exists
+FOREACH (_ IN CASE WHEN tx.slow_unlocked IS NOT NULL THEN [1] ELSE [] END |
+    SET snap.slow_unlocked = tx.slow_unlocked
+)
+
+// Conditionally add `tx.slow_transfer` if it exists
+FOREACH (_ IN CASE WHEN tx.slow_transfer IS NOT NULL THEN [1] ELSE [] END |
+    SET snap.slow_transfer = tx.slow_transfer
+)
+
 MERGE (addr)-[rel:State {{version: tx.version}}]->(snap)
 
 RETURN COUNT(snap) AS merged_snapshots
