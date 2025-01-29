@@ -41,7 +41,7 @@ async fn test_tx_batch() -> anyhow::Result<()> {
     assert!(res.created_tx == txs.len() as u64);
 
     let cypher_query = query(
-        "MATCH ()-[r]->()
+        "MATCH ()-[r:Tx]->()
         RETURN count(r) AS total_tx_count",
     );
 
@@ -53,6 +53,17 @@ async fn test_tx_batch() -> anyhow::Result<()> {
     let total_tx_count: i64 = row.get("total_tx_count").unwrap();
 
     assert!(total_tx_count == txs.len() as i64);
+
+    let cypher_query = query(
+        "MATCH ()-[r:Lifetime]->()
+        RETURN count(r) AS total_tx_count",
+    );
+    // Execute the query
+    let mut result = graph.execute(cypher_query).await?;
+    // Fetch the first row only
+    let row = result.next().await?.unwrap();
+    let total_tx_count: i64 = row.get("total_tx_count").unwrap();
+    assert!(total_tx_count == 18_i64);
 
     // check there are transaction records with function args.
     let cypher_query = query(

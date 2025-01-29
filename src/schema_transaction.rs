@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 pub const LEGACY_REBASE_MULTIPLIER: u64 = 35;
 /// Decimal precision
 // TODO: duplication, this is probably defined in libra-framework somewhere
-pub const COIN_DECIMAL_PRECISION: f64 = 1000000.0;
+pub const COIN_DECIMAL_PRECISION: u64 = 1000000;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum RelationLabel {
@@ -59,13 +59,13 @@ impl RelationLabel {
         match &self {
             RelationLabel::Transfer(_, amount) => {
                 if *amount > 0 {
-                    let human = (*amount as f64) / COIN_DECIMAL_PRECISION;
+                    let human = (*amount as f64) / COIN_DECIMAL_PRECISION as f64;
                     return Some(human);
                 }
             }
             RelationLabel::Onboarding(_, amount) => {
                 if *amount > 0 {
-                    let human = (*amount as f64) / COIN_DECIMAL_PRECISION;
+                    let human = (*amount as f64) / COIN_DECIMAL_PRECISION as f64;
                     return Some(human);
                 }
             }
@@ -152,26 +152,25 @@ impl WarehouseTxMaster {
                 tx_args = st;
             }
         };
-        let coins_literal = match &self.relation_label.get_coins_human_readable() {
-            Some(c) => format!(" coins: {:.2},", c),
-            None => "".to_string(),
+        let mut coins_literal = "NULL".to_string();
+        if let Some(c) = &self.relation_label.get_coins_human_readable() {
+            if c > &0.0 {
+                coins_literal = format!("{:.2}", c);
+            }
         };
         format!(
-            r#"{{ args: {maybe_args_here},{maybe_coins_here}tx_hash: "{}", block_datetime: datetime("{}"), block_timestamp: {}, relation: "{}", function: "{}", sender: "{}", recipient: "{}", framework_version: "{}"}}"#,
+            r#"{{ args: {tx_args}, coins: {coins_literal}, tx_hash: "{}", block_datetime: datetime("{}"), block_timestamp: {}, relation: "{}", function: "{}", sender: "{}", recipient: "{}", framework_version: "{}"}}"#,
             self.tx_hash.to_hex_literal(),
             self.block_datetime.to_rfc3339(),
             self.block_timestamp,
             self.relation_label.to_cypher_label(),
             self.function,
             self.sender.to_hex_literal(),
-            // TODO: should be from relation_label.get_recipient
             self.relation_label
                 .get_recipient()
                 .unwrap_or(self.sender)
                 .to_hex_literal(),
-            self.framework_version,
-            maybe_args_here = tx_args,
-            maybe_coins_here = coins_literal
+            self.framework_version
         )
     }
 

@@ -30,8 +30,9 @@ FOREACH (_ IN CASE WHEN tx.args IS NOT NULL THEN [1] ELSE [] END |
 )
 
 // Conditionally increment the lifetime coins sent
-FOREACH (_ IN CASE WHEN tx.amount > 0 THEN [1] ELSE [] END |
-    MERGE (from)-[relTotal:LifeTime]->(to)
+FOREACH (_ IN CASE WHEN tx.coins > 0 THEN [1] ELSE [] END |
+    SET rel.coins = tx.coins
+    MERGE (from)-[relTotal:Lifetime]->(to)
     SET relTotal.coins = COALESCE(relTotal.coins, 0) + tx.coins
 )
 
