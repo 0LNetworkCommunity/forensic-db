@@ -112,8 +112,7 @@ async fn test_rescue_v5_parse_set_wallet_tx() -> anyhow::Result<()> {
     let mut result = pool.execute(cypher_query).await?;
 
     // Fetch the first row only
-    let row = result.next().await?;
-
+    let _row = result.next().await?;
 
     Ok(())
 }

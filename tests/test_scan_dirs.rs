@@ -22,7 +22,6 @@ fn test_scan_dir_for_v5_manifests() -> Result<()> {
     Ok(())
 }
 
-
 #[test]
 fn test_scan_dir_for_v7_manifests() -> Result<()> {
     let start_here = fixtures::v7_fixtures_path();

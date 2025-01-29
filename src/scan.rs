@@ -56,11 +56,13 @@ impl ManifestInfo {
     }
 
     /// find out the type of content in the manifest
-    pub fn set_contents(&mut self) -> Result<()>{
+    pub fn set_contents(&mut self) -> Result<()> {
         // filenames may be in .gz format
         let pattern = format!(
             "{}/*.manifest*", // also try .gz
-            self.archive_dir.to_str().context("cannot parse starting dir")?
+            self.archive_dir
+                .to_str()
+                .context("cannot parse starting dir")?
         );
 
         if let Some(man_file) = glob(&pattern)?.flatten().next() {
@@ -77,14 +79,11 @@ impl ManifestInfo {
                 // first check if the v7 manifest will parse
                 if let Ok(_bak) = load_snapshot_manifest(&man_path) {
                     self.version = FrameworkVersion::V7;
-                } else {
-                  if v5_read_from_snapshot_manifest(&self.archive_dir.join("state.manifest")).is_ok()
-                  {
-                      self.version = FrameworkVersion::V5;
-                  }
+                } else if v5_read_from_snapshot_manifest(&self.archive_dir.join("state.manifest"))
+                    .is_ok()
+                {
+                    self.version = FrameworkVersion::V5;
                 }
-
-
             }
             BundleContent::Transaction => {
                 // TODO: v5 manifests appear to have the same format this is a noop
@@ -165,7 +164,7 @@ pub fn scan_dir_archive(
         let archive_dir = manifest_path
             .parent()
             .expect("can't find manifest dir, weird");
-        let mut man = ManifestInfo::new(&archive_dir);
+        let mut man = ManifestInfo::new(archive_dir);
         man.set_info()?;
         archive.insert(archive_dir.to_path_buf(), man);
     }

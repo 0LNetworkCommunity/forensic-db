@@ -57,7 +57,7 @@ fn test_rescue_v5_parse_miner_tx() -> anyhow::Result<()> {
     if let TransactionV5::UserTransaction(u) = &t {
         if let TransactionPayload::ScriptFunction(_) = &u.raw_txn.payload {
             println!("ScriptFunction");
-            let sf = ScriptFunctionCall::decode(&u.raw_txn.payload);
+            let _sf = ScriptFunctionCall::decode(&u.raw_txn.payload);
         }
     }
 

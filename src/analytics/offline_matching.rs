@@ -93,7 +93,6 @@ pub async fn get_date_range_deposits_alt(
     Ok(top_deposits)
 }
 
-
 pub async fn get_exchange_users(
     pool: &Graph,
     top_n: u64,
@@ -385,7 +384,6 @@ impl Matching {
 
         let mut eval: Vec<AccountAddress> = vec![];
         deposits.iter().for_each(|el| {
-
             if el.deposited >= user.funded &&
             // must not already have been tagged impossible
             !pending.impossible.contains(&el.account) &&

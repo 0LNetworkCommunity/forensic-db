@@ -157,7 +157,7 @@ impl WarehouseCli {
                 batch_size,
             } => {
                 info!("checking if we need to decompress");
-                let (archive_dir, temp) = unzip_temp::maybe_handle_gz(&archive_dir)?;
+                let (archive_dir, temp) = unzip_temp::maybe_handle_gz(archive_dir)?;
                 let mut man = ManifestInfo::new(&archive_dir);
                 man.set_info()?;
                 let pool = try_db_connection_pool(self).await?;

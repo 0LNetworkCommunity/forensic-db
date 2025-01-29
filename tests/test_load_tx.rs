@@ -63,7 +63,7 @@ async fn test_tx_batch() -> anyhow::Result<()> {
     // Fetch the first row only
     let row = result.next().await?.unwrap();
     let total_tx_count: i64 = row.get("total_tx_count").unwrap();
-    assert!(total_tx_count == 18 as i64);
+    assert!(total_tx_count == 18_i64);
 
     // check there are transaction records with function args.
     let cypher_query = query(

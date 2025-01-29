@@ -167,7 +167,7 @@ async fn get_remote_neo4j() -> Result<()> {
     let mut rows = g
         .execute("CREATE (p: Account {name: 'hi'})\n RETURN p".into())
         .await?;
-    let r = rows.next().await?;
+    let _r = rows.next().await?;
 
     Ok(())
 }
