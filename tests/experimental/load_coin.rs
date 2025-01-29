@@ -95,9 +95,7 @@ fn test_format() {
         time: WarehouseTime::default(),
         balance: Some(WarehouseBalance {
             balance: 10,
-            // legacy_balance: Some(10),
         }),
     };
     let s = increment_balance_template(&record);
-    // dbg!(&s);
 }
