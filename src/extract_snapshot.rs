@@ -59,8 +59,9 @@ pub async fn extract_v5_snapshot(archive_path: &Path) -> Result<Vec<WarehouseAcc
                     s.balance = b.coin()
                 }
                 if let Ok(sw) = acc.get_resource::<SlowWalletResourceV5>() {
-                    s.slow_wallet_unlocked = sw.unlocked;
-                    s.slow_wallet_transferred = sw.transferred;
+                    s.slow_wallet_acc = true;
+                    s.slow_wallet_unlocked = Some(sw.unlocked);
+                    s.slow_wallet_transferred = Some(sw.transferred);
                 }
 
                 if let Ok(tower) = acc.get_resource::<TowerStateResource>() {
@@ -117,8 +118,9 @@ pub async fn extract_current_snapshot(archive_path: &Path) -> Result<Vec<Warehou
             }
 
             if let Some(sw) = el.get_resource::<SlowWalletResource>()? {
-                s.slow_wallet_unlocked = sw.unlocked;
-                s.slow_wallet_transferred = sw.transferred;
+                s.slow_wallet_acc = true;
+                s.slow_wallet_unlocked = Some(sw.unlocked);
+                s.slow_wallet_transferred = Some(sw.transferred);
             }
 
             // Infer if it is a donor voice account

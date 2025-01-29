@@ -15,8 +15,8 @@ async fn test_extract_v5_manifest() -> Result<()> {
 
     assert!(&first.address.to_hex_literal() == "0x407d4d486fdc4e796504135e545be77");
     assert!(first.balance == 100135989588);
-    assert!(first.slow_wallet_unlocked == 140001000000);
-    assert!(first.slow_wallet_transferred == 15999000000);
+    assert!(first.slow_wallet_unlocked == Some(140001000000));
+    assert!(first.slow_wallet_transferred == Some(15999000000));
     assert!(first.sequence_num == 7);
 
     Ok(())
