@@ -3,6 +3,13 @@ use diem_types::account_address::AccountAddress;
 use log::error;
 use serde::{Deserialize, Deserializer};
 
+// TODO check decimal precision
+/// Conversion of coins from V5 to V6
+pub const LEGACY_REBASE_MULTIPLIER: u64 = 35;
+/// Decimal precision
+// TODO: duplication, this is probably defined in libra-framework somewhere
+pub const COIN_DECIMAL_PRECISION: u64 = 1000000;
+
 /// Helper function to parse "YYYY-MM-DD" into `DateTime<Utc>`
 pub fn parse_date(date_str: &str) -> DateTime<Utc> {
     let datetime_str = format!("{date_str}T00:00:00Z"); // Append time and UTC offset

@@ -5,7 +5,7 @@ use libra_forensic_db::extract_snapshot::{extract_current_snapshot, extract_v5_s
 use support::fixtures::{v5_state_manifest_fixtures_path, v7_state_manifest_fixtures_path};
 
 #[tokio::test]
-async fn test_extract_v5_manifest() -> Result<()> {
+async fn test_extract_v5_from_manifest() -> Result<()> {
     let archive_path = v5_state_manifest_fixtures_path();
     assert!(archive_path.exists());
     let s = extract_v5_snapshot(&archive_path).await?;
@@ -14,9 +14,9 @@ async fn test_extract_v5_manifest() -> Result<()> {
     let first = s.first().unwrap();
 
     assert!(&first.address.to_hex_literal() == "0x407d4d486fdc4e796504135e545be77");
-    assert!(first.balance == 100135989588);
-    assert!(first.slow_wallet_unlocked == Some(140001000000));
-    assert!(first.slow_wallet_transferred == Some(15999000000));
+    assert!(first.balance == 100135.989588);
+    assert!(first.slow_wallet_unlocked == Some(140001.000000));
+    assert!(first.slow_wallet_transferred == Some(15999.000000));
     assert!(first.sequence_num == 7);
 
     Ok(())
