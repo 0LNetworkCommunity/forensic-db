@@ -29,8 +29,7 @@ fn test_scan_dir_for_v7_manifests() -> Result<()> {
     let s = scan_dir_archive(&start_here, None)?;
 
     let archives = s.0;
-    // TODO: clean up test fixtures. There are cases of .gz and decompressed data.
-    assert!(archives.len() == 7);
+    assert!(archives.len() == 5);
 
     Ok(())
 }
