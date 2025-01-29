@@ -105,7 +105,6 @@ pub async fn impl_batch_tx_insert(pool: &Graph, batch_txs: &[ExchangeOnRamp]) ->
     // cypher queries makes it annoying to do a single insert of users and
     // txs
     let cypher_string = ExchangeOnRamp::cypher_batch_link_owner(&list_str);
-    // dbg!(&cypher_string);
 
     // Execute the query
     let cypher_query = neo4rs::query(&cypher_string);

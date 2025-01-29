@@ -33,6 +33,42 @@ pub struct ManifestInfo {
 }
 
 impl ManifestInfo {
+    pub fn new(archive_dir: &Path) -> Self {
+        let archive_id = archive_dir
+            .file_name()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_owned();
+        ManifestInfo {
+            archive_dir: archive_dir.to_path_buf(),
+            archive_id,
+            version: FrameworkVersion::Unknown,
+            contents: BundleContent::Unknown,
+            processed: false,
+        }
+    }
+
+    pub fn set_info(&mut self) -> Result<()> {
+        self.set_contents()?;
+        self.try_set_framework_version();
+        Ok(())
+    }
+
+    /// find out the type of content in the manifest
+    pub fn set_contents(&mut self) -> Result<()>{
+        // filenames may be in .gz format
+        let pattern = format!(
+            "{}/*.manifest*", // also try .gz
+            self.archive_dir.to_str().context("cannot parse starting dir")?
+        );
+
+        if let Some(man_file) = glob(&pattern)?.flatten().next() {
+            self.contents = BundleContent::new_from_man_file(&man_file);
+        }
+        Ok(())
+    }
+
     pub fn try_set_framework_version(&mut self) -> FrameworkVersion {
         match self.contents {
             BundleContent::Unknown => return FrameworkVersion::Unknown,
@@ -41,12 +77,14 @@ impl ManifestInfo {
                 // first check if the v7 manifest will parse
                 if let Ok(_bak) = load_snapshot_manifest(&man_path) {
                     self.version = FrameworkVersion::V7;
-                };
-
-                if v5_read_from_snapshot_manifest(&self.archive_dir.join("state.manifest")).is_ok()
-                {
-                    self.version = FrameworkVersion::V5;
+                } else {
+                  if v5_read_from_snapshot_manifest(&self.archive_dir.join("state.manifest")).is_ok()
+                  {
+                      self.version = FrameworkVersion::V5;
+                  }
                 }
+
+
             }
             BundleContent::Transaction => {
                 // TODO: v5 manifests appear to have the same format this is a noop
@@ -83,6 +121,19 @@ pub enum BundleContent {
     EpochEnding,
 }
 impl BundleContent {
+    pub fn new_from_man_file(man_file: &Path) -> Self {
+        let s = man_file.to_str().expect("invalid path");
+        if s.contains("transaction.manifest") {
+            return BundleContent::Transaction;
+        };
+        if s.contains("epoch_ending.manifest") {
+            return BundleContent::EpochEnding;
+        };
+        if s.contains("state.manifest") {
+            return BundleContent::StateSnapshot;
+        };
+        BundleContent::Unknown
+    }
     pub fn filename(&self) -> String {
         match self {
             BundleContent::Unknown => "*.manifest".to_string(),
@@ -110,44 +161,29 @@ pub fn scan_dir_archive(
 
     let mut archive = BTreeMap::new();
 
-    for entry in glob(&pattern)? {
-        match entry {
-            Ok(manifest_path) => {
-                let dir = manifest_path
-                    .parent()
-                    .context("no parent dir found")?
-                    .to_owned();
-                let contents = test_content(&manifest_path);
-                let archive_id = dir.file_name().unwrap().to_str().unwrap().to_owned();
-                let mut m = ManifestInfo {
-                    archive_dir: dir.clone(),
-                    archive_id,
-                    version: FrameworkVersion::Unknown,
-                    contents,
-                    processed: false,
-                };
-                m.try_set_framework_version();
-
-                archive.insert(manifest_path.clone(), m);
-            }
-            Err(e) => println!("{:?}", e),
-        }
+    for manifest_path in glob(&pattern)?.flatten() {
+        let archive_dir = manifest_path
+            .parent()
+            .expect("can't find manifest dir, weird");
+        let mut man = ManifestInfo::new(&archive_dir);
+        man.set_info()?;
+        archive.insert(archive_dir.to_path_buf(), man);
     }
     Ok(ArchiveMap(archive))
 }
 
-/// find out the type of content in the manifest
-fn test_content(manifest_path: &Path) -> BundleContent {
-    let s = manifest_path.to_str().expect("path invalid");
-    if s.contains("transaction.manifest") {
-        return BundleContent::Transaction;
-    };
-    if s.contains("epoch_ending.manifest") {
-        return BundleContent::EpochEnding;
-    };
-    if s.contains("state.manifest") {
-        return BundleContent::StateSnapshot;
-    };
+// /// find out the type of content in the manifest
+// fn test_content(manifest_path: &Path) -> BundleContent {
+//     let s = manifest_path.to_str().expect("path invalid");
+//     if s.contains("transaction.manifest") {
+//         return BundleContent::Transaction;
+//     };
+//     if s.contains("epoch_ending.manifest") {
+//         return BundleContent::EpochEnding;
+//     };
+//     if s.contains("state.manifest") {
+//         return BundleContent::StateSnapshot;
+//     };
 
-    BundleContent::Unknown
-}
+//     BundleContent::Unknown
+// }

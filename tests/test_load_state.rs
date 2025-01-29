@@ -142,7 +142,6 @@ async fn test_snapshot_entrypoint() -> anyhow::Result<()> {
     // Fetch the first row only
     let row = result.next().await?.unwrap();
     let count: i64 = row.get("count_state_edges").unwrap();
-    dbg!(&count);
     assert!(count == 17338i64);
 
     Ok(())

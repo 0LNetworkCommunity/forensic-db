@@ -230,7 +230,6 @@ use serde_json::Value;
 pub fn to_cypher_object<T: Serialize>(object: &T) -> Result<String> {
     // Serialize the struct to a JSON value
     let serialized_value = serde_json::to_value(object).expect("Failed to serialize");
-    // dbg!(&serialized_value);
 
     let flattener = smooth_json::Flattener {
         separator: "_",

@@ -57,9 +57,7 @@ fn test_rescue_v5_parse_miner_tx() -> anyhow::Result<()> {
     if let TransactionV5::UserTransaction(u) = &t {
         if let TransactionPayload::ScriptFunction(_) = &u.raw_txn.payload {
             println!("ScriptFunction");
-            dbg!(&u.raw_txn.payload);
             let sf = ScriptFunctionCall::decode(&u.raw_txn.payload);
-            dbg!(&sf);
         }
     }
 
@@ -71,7 +69,6 @@ fn test_json_format_example() -> anyhow::Result<()> {
     let p = fixtures::v5_json_tx_path().join("example_create_user.json");
 
     let (tx, _, _) = extract_v5_json_rescue(&p)?;
-    dbg!(&tx);
 
     let first = tx.first().unwrap();
     assert!(first.sender.to_hex_literal() == *"0xecaf65add1b785b0495e3099f4045ec0");
@@ -84,7 +81,6 @@ fn test_json_full_file() -> anyhow::Result<()> {
     let p = fixtures::v5_json_tx_path().join("10000-10999.json");
 
     let (tx, _, _) = extract_v5_json_rescue(&p)?;
-    dbg!(&tx);
     assert!(tx.len() == 4);
     let first = tx.first().unwrap();
 

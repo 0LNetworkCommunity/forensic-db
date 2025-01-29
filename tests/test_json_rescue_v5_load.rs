@@ -67,7 +67,7 @@ async fn test_load_queue() -> anyhow::Result<()> {
     let path = fixtures::v5_json_tx_path();
 
     let tx_count = json_rescue_v5_load::rip_concurrent_limited(&path, &pool, None).await?;
-    dbg!(&tx_count);
+
     assert!(tx_count == 13);
 
     let tx_count = json_rescue_v5_load::rip_concurrent_limited(&path, &pool, None).await?;
@@ -85,7 +85,6 @@ async fn test_rescue_v5_parse_set_wallet_tx() -> anyhow::Result<()> {
     let path = fixtures::v5_json_tx_path().join("example_set_wallet_type.json");
 
     let (vec_tx, _, _) = extract_v5_json_rescue(&path)?;
-    dbg!(&vec_tx);
 
     let c = start_neo4j_container();
     let port = c.get_host_port_ipv4(7687);
@@ -97,7 +96,6 @@ async fn test_rescue_v5_parse_set_wallet_tx() -> anyhow::Result<()> {
         .expect("could start index");
 
     let res = tx_batch(&vec_tx, &pool, 100, "test-set-wallet").await?;
-    dbg!(&res);
 
     assert!(res.created_tx > 0);
 
@@ -115,8 +113,7 @@ async fn test_rescue_v5_parse_set_wallet_tx() -> anyhow::Result<()> {
 
     // Fetch the first row only
     let row = result.next().await?;
-    // let total_tx_count: i64 = row.get("total_tx_count").unwrap();
-    dbg!(&row);
+
 
     Ok(())
 }

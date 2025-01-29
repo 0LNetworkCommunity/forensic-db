@@ -42,7 +42,13 @@ pub async fn ingest_all(
     let pending = queue::get_queued(pool).await?;
     info!("pending archives: {}", pending.len());
 
+    // This manifest may be for a .gz file, we should handle here as well
     for (_p, m) in archive_map.0.iter() {
+        info!("checking if we need to decompress");
+        let (new_unzip_path, temp) = unzip_temp::maybe_handle_gz(&m.archive_dir)?;
+        let mut better_man = ManifestInfo::new(&new_unzip_path);
+        better_man.set_info()?;
+
         println!(
             "\nProcessing: {:?} with archive: {}",
             m.contents,
@@ -60,6 +66,7 @@ pub async fn ingest_all(
                 m.archive_dir.display()
             );
         }
+        drop(temp);
     }
 
     Ok(())
@@ -70,9 +77,6 @@ pub async fn try_load_one_archive(
     pool: &Graph,
     batch_size: usize,
 ) -> Result<BatchTxReturn> {
-    info!("checking if we need to decompress");
-    let (archive_path, temp) = unzip_temp::maybe_handle_gz(&man.archive_dir)?;
-
     let mut all_results = BatchTxReturn::new();
     match man.contents {
         crate::scan::BundleContent::Unknown => todo!(),
@@ -82,24 +86,23 @@ pub async fn try_load_one_archive(
                     error!("no framework version detected");
                     bail!("could not load archive from manifest");
                 }
-                crate::scan::FrameworkVersion::V5 => extract_v5_snapshot(&archive_path).await?,
+                crate::scan::FrameworkVersion::V5 => extract_v5_snapshot(&man.archive_dir).await?,
                 crate::scan::FrameworkVersion::V6 => {
-                    extract_current_snapshot(&archive_path).await?
+                    extract_current_snapshot(&man.archive_dir).await?
                 }
                 crate::scan::FrameworkVersion::V7 => {
-                    extract_current_snapshot(&archive_path).await?
+                    extract_current_snapshot(&man.archive_dir).await?
                 }
             };
             snapshot_batch(&snaps, pool, batch_size, &man.archive_id).await?;
         }
         crate::scan::BundleContent::Transaction => {
-            let (txs, _) = extract_current_transactions(&archive_path, &man.version).await?;
+            let (txs, _) = extract_current_transactions(&man.archive_dir, &man.version).await?;
             let batch_res =
                 load_tx_cypher::tx_batch(&txs, pool, batch_size, &man.archive_id).await?;
             all_results.increment(&batch_res);
         }
         crate::scan::BundleContent::EpochEnding => todo!(),
     }
-    drop(temp);
     Ok(all_results)
 }

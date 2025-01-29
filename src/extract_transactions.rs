@@ -42,20 +42,20 @@ pub async fn extract_current_transactions(
 
             // first increment the block metadata. This assumes the vector is sequential.
             if let Some(block) = tx.try_as_block_metadata() {
-                // check the epochs are incrementing or not
-                if epoch > block.epoch()
-                    && round > block.round()
-                    && timestamp > block.timestamp_usecs()
-                {
-                    dbg!(
-                        epoch,
-                        block.epoch(),
-                        round,
-                        block.round(),
-                        timestamp,
-                        block.timestamp_usecs()
-                    );
-                }
+                // // check the epochs are incrementing or not
+                // if epoch > block.epoch()
+                //     && round > block.round()
+                //     && timestamp > block.timestamp_usecs()
+                // {
+                //     dbg!(
+                //         epoch,
+                //         block.epoch(),
+                //         round,
+                //         block.round(),
+                //         timestamp,
+                //         block.timestamp_usecs()
+                //     );
+                // }
 
                 epoch = block.epoch();
                 round = block.round();

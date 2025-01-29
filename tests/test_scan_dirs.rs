@@ -14,7 +14,6 @@ fn test_scan_dir_for_v5_manifests() -> Result<()> {
 
     let s = scan_dir_archive(&start_here, None)?;
 
-    dbg!(&s);
     assert!(s.0.len() == 1);
     let (_k, v) = s.0.first_key_value().unwrap();
     assert!(v.version == FrameworkVersion::V5);
@@ -22,18 +21,7 @@ fn test_scan_dir_for_v5_manifests() -> Result<()> {
 
     Ok(())
 }
-// #[test]
 
-// fn test_scan_dir_for_v5_final() -> Result<()> {
-//     let start_here = fixtures::v5_fixtures_path();
-//     let s = start_here.parent().unwrap().join("v5_final_epoch/state_ver_141722729.0ab2");
-//     let s = scan_dir_archive(&s, None)?;
-
-//     dbg!(&s);
-
-//     assert!(s.0.len() == 1);
-//     Ok(())
-// }
 
 #[test]
 fn test_scan_dir_for_v7_manifests() -> Result<()> {

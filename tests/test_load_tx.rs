@@ -54,8 +54,7 @@ async fn test_tx_batch() -> anyhow::Result<()> {
 
     assert!(total_tx_count == txs.len() as i64);
 
-
-        let cypher_query = query(
+    let cypher_query = query(
         "MATCH ()-[r:Lifetime]->()
         RETURN count(r) AS total_tx_count",
     );

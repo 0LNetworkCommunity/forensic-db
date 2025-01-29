@@ -68,7 +68,6 @@ async fn test_tx_insert() -> Result<()> {
     while let Ok(Some(row)) = result.next().await {
         let node: Node = row.get("p").unwrap();
         let id: String = node.get("address").unwrap();
-        dbg!(&id);
         assert!(id == *"0xa11ce");
     }
 
@@ -169,7 +168,6 @@ async fn get_remote_neo4j() -> Result<()> {
         .execute("CREATE (p: Account {name: 'hi'})\n RETURN p".into())
         .await?;
     let r = rows.next().await?;
-    dbg!(&r);
 
     Ok(())
 }

@@ -133,7 +133,7 @@ async fn test_submit_exchange_ledger() -> Result<()> {
 
     let mut tracker = BalanceTracker::new();
     tracker.replay_transactions(&mut orders)?;
-    dbg!(&tracker.0.len());
+
     let days_records = tracker.0.len();
     assert!(days_records == 47);
 
@@ -257,8 +257,6 @@ async fn test_offline_analytics_matching() -> Result<()> {
         )
         .await;
 
-    dbg!(&m.definite);
-
     Ok(())
 }
 
@@ -273,7 +271,6 @@ async fn test_easy_sellers() -> Result<()> {
     let mut user_list = offline_matching::get_exchange_users_only_outflows(&pool).await?;
     user_list
         .sort_by(|a, b: &offline_matching::MinFunding| b.funded.partial_cmp(&a.funded).unwrap());
-    dbg!(&user_list.len());
 
     let deposits = offline_matching::get_date_range_deposits_alt(
         &pool,
@@ -290,21 +287,7 @@ async fn test_easy_sellers() -> Result<()> {
 
     m.match_exact_sellers(&user_list, &deposits, 1.05);
 
-    dbg!(&m.definite.len());
-
-    dbg!(&m.definite);
     m.write_cache_to_file(&dir)?;
-
-    // let _ = m
-    //     .depth_search_by_top_n_accounts(
-    //         &pool,
-    //         parse_date("2024-01-07"),
-    //         parse_date("2024-03-15"),
-    //         101,
-    //         Some(dir),
-    //     )
-    //     .await;
-    // dbg!(&m.definite.len());
 
     Ok(())
 }
