@@ -2,7 +2,7 @@ use crate::{
     scan::FrameworkVersion,
     schema_transaction::{
         EntryFunctionArgs, RelationLabel, WarehouseEvent, WarehouseTxMaster,
-        LEGACY_REBASE_MULTIPLIER,
+        COIN_DECIMAL_PRECISION, LEGACY_REBASE_MULTIPLIER,
     },
     unzip_temp::decompress_tar_archive,
 };
@@ -126,7 +126,7 @@ fn maybe_decode_v5_genesis_function(
             } => {
                 wtx.relation_label = RelationLabel::Transfer(
                     cast_legacy_account(destination)?,
-                    *unscaled_value * LEGACY_REBASE_MULTIPLIER,
+                    *unscaled_value * COIN_DECIMAL_PRECISION * LEGACY_REBASE_MULTIPLIER,
                 );
 
                 wtx.entry_function = Some(EntryFunctionArgs::V5(sf.to_owned()));
@@ -151,7 +151,7 @@ fn maybe_decode_v5_genesis_function(
             } => {
                 wtx.relation_label = RelationLabel::Onboarding(
                     cast_legacy_account(account)?,
-                    *unscaled_value * LEGACY_REBASE_MULTIPLIER,
+                    *unscaled_value * COIN_DECIMAL_PRECISION * LEGACY_REBASE_MULTIPLIER,
                 );
             }
             ScriptFunctionCallGenesis::CreateValidatorAccount {
@@ -202,7 +202,7 @@ fn maybe_decode_v520_function(
             } => {
                 wtx.relation_label = RelationLabel::Transfer(
                     cast_legacy_account(destination)?,
-                    *unscaled_value * LEGACY_REBASE_MULTIPLIER,
+                    *unscaled_value * COIN_DECIMAL_PRECISION * LEGACY_REBASE_MULTIPLIER,
                 );
 
                 wtx.entry_function = Some(EntryFunctionArgs::V520(sf.to_owned()));
