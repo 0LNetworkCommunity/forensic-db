@@ -148,8 +148,10 @@ impl WarehouseCli {
                 batch_size,
             } => {
                 let map = scan_dir_archive(start_path, archive_content.to_owned())?;
+
                 let pool = try_db_connection_pool(self).await?;
                 neo4j_init::maybe_create_indexes(&pool).await?;
+
                 ingest_all(&map, &pool, self.clear_queue, batch_size.unwrap_or(250)).await?;
             }
             Sub::IngestOne {
