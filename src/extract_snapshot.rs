@@ -21,6 +21,7 @@ use log::{error, info, warn};
 use crate::{
     scan::FrameworkVersion,
     schema_account_state::{WarehouseAccState, WarehouseTime},
+    util::COIN_DECIMAL_PRECISION,
 };
 
 // uses libra-compatibility to parse the v5 manifest files, and decode v5 format bytecode into current version data structures (v6+);
@@ -56,11 +57,14 @@ pub async fn extract_v5_snapshot(archive_path: &Path) -> Result<Vec<WarehouseAcc
                 }
 
                 if let Ok(b) = acc.get_resource::<BalanceResourceV5>() {
-                    s.balance = b.coin()
+                    s.balance = b.coin() as f64 / COIN_DECIMAL_PRECISION as f64;
                 }
                 if let Ok(sw) = acc.get_resource::<SlowWalletResourceV5>() {
-                    s.slow_wallet_unlocked = sw.unlocked;
-                    s.slow_wallet_transferred = sw.transferred;
+                    s.slow_wallet_acc = true;
+                    s.slow_wallet_unlocked =
+                        Some(sw.unlocked as f64 / COIN_DECIMAL_PRECISION as f64);
+                    s.slow_wallet_transferred =
+                        Some(sw.transferred as f64 / COIN_DECIMAL_PRECISION as f64);
                 }
 
                 if let Ok(tower) = acc.get_resource::<TowerStateResource>() {
@@ -113,12 +117,14 @@ pub async fn extract_current_snapshot(archive_path: &Path) -> Result<Vec<Warehou
             }
 
             if let Some(b) = el.get_resource::<LibraCoinStoreResource>()? {
-                s.balance = b.coin();
+                s.balance = b.coin() as f64 / COIN_DECIMAL_PRECISION as f64;
             }
 
             if let Some(sw) = el.get_resource::<SlowWalletResource>()? {
-                s.slow_wallet_unlocked = sw.unlocked;
-                s.slow_wallet_transferred = sw.transferred;
+                s.slow_wallet_acc = true;
+                s.slow_wallet_unlocked = Some(sw.unlocked as f64 / COIN_DECIMAL_PRECISION as f64);
+                s.slow_wallet_transferred =
+                    Some(sw.transferred as f64 / COIN_DECIMAL_PRECISION as f64);
             }
 
             // Infer if it is a donor voice account

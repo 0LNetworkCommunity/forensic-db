@@ -1,10 +1,8 @@
 use crate::{
     scan::FrameworkVersion,
-    schema_transaction::{
-        EntryFunctionArgs, RelationLabel, WarehouseEvent, WarehouseTxMaster,
-        COIN_DECIMAL_PRECISION, LEGACY_REBASE_MULTIPLIER,
-    },
+    schema_transaction::{EntryFunctionArgs, RelationLabel, WarehouseEvent, WarehouseTxMaster},
     unzip_temp::decompress_tar_archive,
+    util::{COIN_DECIMAL_PRECISION, LEGACY_REBASE_MULTIPLIER},
 };
 use chrono::DateTime;
 use diem_crypto::HashValue;
