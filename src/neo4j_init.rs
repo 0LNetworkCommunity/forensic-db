@@ -52,6 +52,8 @@ pub static INDEX_EXCHANGE_LINK_LEDGER: &str = "
 pub static INDEX_LIFETIME: &str = "
     CREATE INDEX link_ledger IF NOT EXISTS FOR ()-[r:Lifetime]->() ON (r.amount)
     ";
+
+pub static INDEX_SNAPSHOT: &str = "CREATE INDEX snapshot_account_id IF NOT EXISTS FOR (n:Snapshot) ON (n.address, n.epoch, n.version)";
 /// get the testing neo4j connection
 pub async fn get_neo4j_localhost_pool(port: u16) -> Result<Graph> {
     let uri = format!("127.0.0.1:{port}");
@@ -89,6 +91,7 @@ pub async fn maybe_create_indexes(graph: &Graph) -> Result<()> {
         INDEX_EXCHANGE_LEDGER,
         INDEX_EXCHANGE_LINK_LEDGER,
         INDEX_LIFETIME,
+        INDEX_SNAPSHOT,
     ])
     .await?;
     txn.commit().await?;

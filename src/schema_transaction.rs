@@ -1,4 +1,6 @@
-use crate::{cypher_templates::to_cypher_object, scan::FrameworkVersion};
+use crate::{
+    cypher_templates::to_cypher_object, scan::FrameworkVersion, util::COIN_DECIMAL_PRECISION,
+};
 
 use chrono::{DateTime, Utc};
 use diem_crypto::HashValue;
@@ -11,13 +13,6 @@ use libra_backwards_compatibility::sdk::{
 };
 use libra_types::{exports::AccountAddress, move_resource::coin_register_event::CoinRegisterEvent};
 use serde::{Deserialize, Serialize};
-
-// TODO check decimal precision
-/// Conversion of coins from V5 to V6
-pub const LEGACY_REBASE_MULTIPLIER: u64 = 35;
-/// Decimal precision
-// TODO: duplication, this is probably defined in libra-framework somewhere
-pub const COIN_DECIMAL_PRECISION: u64 = 1000000;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum RelationLabel {
