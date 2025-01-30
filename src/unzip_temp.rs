@@ -125,9 +125,8 @@ pub fn maybe_handle_gz(archive_path: &Path) -> Result<(PathBuf, Option<TempPath>
     // maybe stuff isn't unzipped yet
     let pattern = format!("{}/*.*.gz", archive_path.display());
     if glob(&pattern)?.count() > 0 {
-        let mut temp_dir = TempPath::new();
+        let temp_dir = TempPath::new();
         temp_dir.create_as_dir()?;
-        temp_dir.persist();
 
         // need to preserve the parent dir name in temp, since the manifest files reference it.
         let dir_name = archive_path.file_name().unwrap().to_str().unwrap();

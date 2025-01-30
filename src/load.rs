@@ -44,29 +44,29 @@ pub async fn ingest_all(
 
     // This manifest may be for a .gz file, we should handle here as well
     for (_p, m) in archive_map.0.iter() {
-        info!("checking if we need to decompress");
-        let (new_unzip_path, temp) = unzip_temp::maybe_handle_gz(&m.archive_dir)?;
-        let mut better_man = ManifestInfo::new(&new_unzip_path);
-        better_man.set_info()?;
-
         println!(
             "\nProcessing: {:?} with archive: {}",
-            better_man.contents,
-            better_man.archive_dir.display()
+            m.contents,
+            m.archive_dir.display()
         );
 
-        let complete = queue::are_all_completed(pool, &better_man.archive_id).await?;
+        let complete = queue::are_all_completed(pool, &m.archive_id).await?;
 
         if !complete {
+            info!("checking if we need to decompress");
+            let (new_unzip_path, temp) = unzip_temp::maybe_handle_gz(&m.archive_dir)?;
+            let mut better_man = ManifestInfo::new(&new_unzip_path);
+            better_man.set_info()?;
+
             let batch_tx_return = try_load_one_archive(&better_man, pool, batch_size).await?;
             println!("SUCCESS: {}", batch_tx_return);
+            drop(temp);
         } else {
             info!(
                 "archive complete (or not in queue): {}",
-                better_man.archive_dir.display()
+                m.archive_dir.display()
             );
         }
-        drop(temp);
     }
 
     Ok(())
