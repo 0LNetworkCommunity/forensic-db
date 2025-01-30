@@ -5,14 +5,14 @@ use diem_crypto::HashValue;
 use libra_forensic_db::{
     cypher_templates::{write_batch_tx_string, write_batch_user_create},
     extract_transactions::extract_current_transactions,
-    load::try_load_one_archive,
+    load::{ingest_all, try_load_one_archive},
     load_tx_cypher::tx_batch,
     neo4j_init::{get_neo4j_localhost_pool, maybe_create_indexes},
     scan::{scan_dir_archive, FrameworkVersion},
     schema_transaction::WarehouseTxMaster,
 };
 use neo4rs::query;
-use support::neo4j_testcontainer::start_neo4j_container;
+use support::{fixtures, neo4j_testcontainer::start_neo4j_container};
 
 #[tokio::test]
 async fn test_tx_batch() -> anyhow::Result<()> {
@@ -107,6 +107,23 @@ async fn test_load_entry_point_tx() -> anyhow::Result<()> {
     assert!(res.unchanged_accounts == 0);
     assert!(res.created_tx == 27);
 
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_gzip_archive_entry_point() -> Result<()> {
+    let start_here = fixtures::v7_fixtures_gzipped();
+
+    let map = scan_dir_archive(&start_here, None)?;
+
+    let c = start_neo4j_container();
+    let port = c.get_host_port_ipv4(7687);
+    let graph = get_neo4j_localhost_pool(port)
+        .await
+        .expect("could not get neo4j connection pool");
+    maybe_create_indexes(&graph).await?;
+
+    ingest_all(&map, &graph, false, 250).await?;
     Ok(())
 }
 

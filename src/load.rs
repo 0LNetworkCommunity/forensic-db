@@ -51,19 +51,19 @@ pub async fn ingest_all(
 
         println!(
             "\nProcessing: {:?} with archive: {}",
-            m.contents,
-            m.archive_dir.display()
+            better_man.contents,
+            better_man.archive_dir.display()
         );
 
-        let complete = queue::are_all_completed(pool, &m.archive_id).await?;
+        let complete = queue::are_all_completed(pool, &better_man.archive_id).await?;
 
         if !complete {
-            let batch_tx_return = try_load_one_archive(m, pool, batch_size).await?;
+            let batch_tx_return = try_load_one_archive(&better_man, pool, batch_size).await?;
             println!("SUCCESS: {}", batch_tx_return);
         } else {
             info!(
                 "archive complete (or not in queue): {}",
-                m.archive_dir.display()
+                better_man.archive_dir.display()
             );
         }
         drop(temp);
