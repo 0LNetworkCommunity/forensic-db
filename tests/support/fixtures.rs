@@ -12,7 +12,7 @@ pub fn v7_fixtures_path() -> PathBuf {
 
 pub fn v7_fixtures_gzipped() -> PathBuf {
     let p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    p.join("tests/fixtures/v7/transaction_38100001-.541f_gzipped")
+    p.join("tests/fixtures/v7/transaction_95700001-.46cf")
 }
 
 pub fn v5_json_tx_path() -> PathBuf {
