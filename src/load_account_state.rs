@@ -45,9 +45,7 @@ pub async fn snapshot_batch(
 
         match impl_batch_snapshot_insert(pool, c).await {
             Ok(batch) => {
-                // dbg!(&batch);
                 all_results.increment(&batch);
-                // dbg!(&all_results);
                 queue::update_task(pool, archive_id, true, i).await?;
                 info!("...success");
             }

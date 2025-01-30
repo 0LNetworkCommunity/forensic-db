@@ -245,5 +245,4 @@ fn test_rms_pipeline() {
     assert!((s3.rms_24hour > 57.0) && (s3.rms_24hour < 58.0));
 
     process_shill(&mut swaps);
-    // dbg!(&swaps);
 }

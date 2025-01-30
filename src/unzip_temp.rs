@@ -2,8 +2,8 @@ use anyhow::{Context, Result};
 use diem_temppath::TempPath;
 use flate2::read::GzDecoder;
 use glob::glob;
-use libra_storage::read_tx_chunk::load_tx_chunk_manifest;
-use log::{debug, info, warn};
+// use libra_storage::read_tx_chunk::load_tx_chunk_manifest;
+use log::{info, warn};
 use std::{
     fs::File,
     io::copy,
@@ -94,18 +94,19 @@ pub fn decompress_all_gz(parent_dir: &Path, dst_dir: &Path) -> Result<()> {
 fn maybe_fix_manifest(archive_path: &Path) -> Result<()> {
     let pattern = format!("{}/**/*.manifest", archive_path.display());
     for manifest_path in glob(&pattern)?.flatten() {
-        let mut manifest = load_tx_chunk_manifest(&manifest_path)?;
-        debug!("old manifest:\n{:#}", &serde_json::to_string(&manifest)?);
+        let literal = std::fs::read_to_string(&manifest_path)?.replace(".gz", "");
+        // let mut manifest = load_tx_chunk_manifest(&manifest_path)?;
+        // debug!("old manifest:\n{:#}", &serde_json::to_string(&manifest)?);
 
-        manifest.chunks.iter_mut().for_each(|e| {
-            if e.proof.contains(".gz") {
-                e.proof = e.proof.trim_end_matches(".gz").to_string();
-            }
-            if e.transactions.contains(".gz") {
-                e.transactions = e.transactions.trim_end_matches(".gz").to_string();
-            }
-        });
-        let literal = serde_json::to_string(&manifest)?;
+        // manifest.chunks.iter_mut().for_each(|e| {
+        //     if e.proof.contains(".gz") {
+        //         e.proof = e.proof.trim_end_matches(".gz").to_string();
+        //     }
+        //     if e.transactions.contains(".gz") {
+        //         e.transactions = e.transactions.trim_end_matches(".gz").to_string();
+        //     }
+        // });
+        // let literal = serde_json::to_string(&manifest)?;
 
         warn!(
             "rewriting .manifest file to remove .gz paths, {}, {:#}",
@@ -124,12 +125,16 @@ pub fn maybe_handle_gz(archive_path: &Path) -> Result<(PathBuf, Option<TempPath>
     // maybe stuff isn't unzipped yet
     let pattern = format!("{}/*.*.gz", archive_path.display());
     if glob(&pattern)?.count() > 0 {
-        info!("Decompressing a temp folder. If you do not want to decompress files on the fly (which are not saved), then you workflow to do a `gunzip -r` before starting this.");
-        let temp_dir = TempPath::new();
+        let mut temp_dir = TempPath::new();
         temp_dir.create_as_dir()?;
+        temp_dir.persist();
+
         // need to preserve the parent dir name in temp, since the manifest files reference it.
         let dir_name = archive_path.file_name().unwrap().to_str().unwrap();
         let new_archive_path = temp_dir.path().join(dir_name);
+
+        info!("Decompressing a temp folder. If you do not want to decompress files on the fly (which are not saved), then you workflow to do a `gunzip -r` before starting this. Temp folder: {}", &new_archive_path.display());
+
         std::fs::create_dir_all(&new_archive_path)?;
         decompress_all_gz(archive_path, &new_archive_path)?;
         // fix the manifest in the TEMP path

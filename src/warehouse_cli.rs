@@ -1,6 +1,6 @@
 use anyhow::{bail, Result};
 use clap::{Parser, Subcommand};
-use log::{debug, error, info, warn};
+use log::{error, info, warn};
 use neo4rs::Graph;
 use serde_json::json;
 use std::path::PathBuf;
@@ -13,8 +13,8 @@ use crate::{
     load::{ingest_all, try_load_one_archive},
     load_exchange_orders,
     neo4j_init::{self, get_credentials_from_env, PASS_ENV, URI_ENV, USER_ENV},
-    scan::{scan_dir_archive, BundleContent},
-    util,
+    scan::{scan_dir_archive, BundleContent, ManifestInfo},
+    unzip_temp, util,
 };
 
 #[derive(Parser)]
@@ -156,17 +156,15 @@ impl WarehouseCli {
                 archive_dir,
                 batch_size,
             } => {
-                let am = scan_dir_archive(archive_dir, None)?;
-                debug!("archive map: {:?}", &am);
-                if am.0.is_empty() {
-                    error!("cannot find .manifest file under {}", archive_dir.display());
-                }
-                for (_p, man) in am.0 {
-                    let pool = try_db_connection_pool(self).await?;
-                    neo4j_init::maybe_create_indexes(&pool).await?;
+                info!("checking if we need to decompress");
+                let (archive_dir, temp) = unzip_temp::maybe_handle_gz(archive_dir)?;
+                let mut man = ManifestInfo::new(&archive_dir);
+                man.set_info()?;
+                let pool = try_db_connection_pool(self).await?;
+                neo4j_init::maybe_create_indexes(&pool).await?;
 
-                    try_load_one_archive(&man, &pool, batch_size.unwrap_or(250)).await?;
-                }
+                try_load_one_archive(&man, &pool, batch_size.unwrap_or(250)).await?;
+                drop(temp);
             }
             Sub::Check { archive_dir } => {
                 let am = scan_dir_archive(archive_dir, None)?;

@@ -89,77 +89,9 @@ pub async fn get_date_range_deposits_alt(
             deposited,
         };
         top_deposits.push(d);
-        // dbg!(&d);
     }
     Ok(top_deposits)
 }
-
-// pub async fn get_date_range_deposits(
-//     pool: &Graph,
-//     top_n: u64,
-//     start: DateTime<Utc>,
-//     end: DateTime<Utc>,
-// ) -> Result<Vec<Deposit>> {
-//     let mut top_deposits = vec![];
-
-//     let q = format!(
-//         // r#"
-//         // WITH "0xf57d3968d0bfd5b3120fda88f34310c70bd72033f77422f4407fbbef7c24557a" AS olswap_deposit
-
-//         // // Step 1: Get the list of all depositors
-//         // MATCH (depositor:Account)-[tx:Tx]->(onboard:Account {{address: olswap_deposit}})
-//         // WITH COLLECT(DISTINCT depositor) AS all_depositors, olswap_deposit, tx
-
-//         // // Step 2: Match depositors and amounts within the date range
-
-//         // UNWIND all_depositors AS depositor
-
-//         // OPTIONAL MATCH (depositor)-[tx2:Tx]->(onboard:Account {{address: olswap_deposit}})
-//         // WHERE tx2.block_datetime >= datetime('{}') AND tx2.block_datetime <= datetime('{}')
-
-//         // WITH
-//         //   depositor.address AS account,
-//         //   COALESCE(SUM(tx2.V7_OlAccountTransfer_amount), 0)/1000000 AS deposit_amount
-//         // RETURN account, toFloat(deposit_amount) as deposited
-//         // ORDER BY deposited DESC
-
-//         // "#,
-//         r#"
-//         WITH "0xf57d3968d0bfd5b3120fda88f34310c70bd72033f77422f4407fbbef7c24557a" as exchange_deposit
-//         MATCH
-//           (u:Account)-[tx:Tx]->(onboard:Account {{address: exchange_deposit}})
-//         WHERE
-//           tx.`block_datetime` > datetime("{}")
-//           AND tx.`block_datetime` < datetime("{}")
-//         WITH
-//           DISTINCT(u),
-//           SUM(tx.V7_OlAccountTransfer_amount) AS totalTxAmount
-//         ORDER BY totalTxAmount DESCENDING
-//         RETURN u.address AS account, toFloat(totalTxAmount) / 1000000 AS deposited
-
-//         "#,
-//         start.to_rfc3339(),
-//         end.to_rfc3339(),
-//         // top_n,
-//     );
-//     let cypher_query = neo4rs::query(&q);
-
-//     // Execute the query
-//     let mut result = pool.execute(cypher_query).await?;
-
-//     // Fetch the first row only
-//     while let Some(r) = result.next().await? {
-//         let account_str = r.get::<String>("account").unwrap_or("unknown".to_string());
-//         let deposited = r.get::<f64>("deposited").unwrap_or(0.0);
-//         let d = Deposit {
-//             account: account_str.parse().unwrap_or(AccountAddress::ZERO),
-//             deposited,
-//         };
-//         top_deposits.push(d);
-//         // dbg!(&d);
-//     }
-//     Ok(top_deposits)
-// }
 
 pub async fn get_exchange_users(
     pool: &Graph,
@@ -194,7 +126,6 @@ pub async fn get_exchange_users(
         let funded = r.get::<f64>("funded").unwrap_or(0.0);
         let d = MinFunding { user_id, funded };
         min_funding.push(d);
-        // dbg!(&d);
     }
     Ok(min_funding)
 }
@@ -226,7 +157,6 @@ pub async fn get_exchange_users_only_outflows(pool: &Graph) -> Result<Vec<MinFun
             funded: funded as f64,
         };
         min_funding.push(d);
-        // dbg!(&d);
     }
     Ok(min_funding)
 }
@@ -263,7 +193,6 @@ pub async fn get_one_exchange_user(
         let funded = r.get::<f64>("funded").unwrap_or(0.0);
         let d = MinFunding { user_id, funded };
         min_funding.push(d);
-        // dbg!(&d);
     }
     Ok(min_funding)
 }
@@ -311,11 +240,6 @@ impl Matching {
             .map(|el| el.user_id)
             .collect();
 
-        // dbg!(&ids);
-        // let user_ledger = funded.iter().find(|el| {
-        //   // check if we have already identified it
-        //   self.definite.0.get(el.user_id).none()
-        // });
         Ok((*ids.first().unwrap(), *ids.get(1).unwrap()))
     }
 
@@ -460,7 +384,6 @@ impl Matching {
 
         let mut eval: Vec<AccountAddress> = vec![];
         deposits.iter().for_each(|el| {
-            // dbg!(&el);
             if el.deposited >= user.funded &&
             // must not already have been tagged impossible
             !pending.impossible.contains(&el.account) &&
